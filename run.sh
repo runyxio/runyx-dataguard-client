@@ -157,13 +157,24 @@ start_docker_service() {
 
 # Check if Docker daemon is running
 check_docker_running() {
-    if docker info &> /dev/null; then
+    # Try docker info first (most reliable)
+    if docker info &> /dev/null 2>&1; then
         print_success "Docker daemon is running"
         return 0
-    else
-        print_warning "Docker daemon is not running"
-        return 1
     fi
+
+    # Check via systemctl if available
+    if command -v systemctl &> /dev/null; then
+        if systemctl is-active --quiet docker 2>/dev/null; then
+            print_warning "Docker service is active but 'docker info' failed. May be a permissions issue."
+            print_info "Tip: Try running 'sudo usermod -aG docker $USER' and re-login"
+            # Return 0 since service is running, even if we can't connect
+            return 0
+        fi
+    fi
+
+    print_warning "Docker daemon is not running"
+    return 1
 }
 
 # Test port connectivity
@@ -266,13 +277,23 @@ main() {
     fi
 
     # Step 3: Start Docker service if not running
+    DOCKER_OK=true
     if ! check_docker_running; then
         start_docker_service
-        sleep 2
+        sleep 3
 
         if ! check_docker_running; then
-            print_error "Failed to start Docker daemon. Please start it manually."
-            exit 1
+            print_warning "Failed to start Docker daemon automatically."
+            echo ""
+            print_info "Please start Docker manually with one of these commands:"
+            echo "  sudo systemctl start docker"
+            echo "  sudo service docker start"
+            echo ""
+            print_info "After starting Docker, you can:"
+            echo "  1. Run this script again: ./run.sh"
+            echo "  2. Or run manually: docker compose up -d --build"
+            echo ""
+            DOCKER_OK=false
         fi
     fi
 
@@ -309,59 +330,99 @@ main() {
     mkdir -p data
     print_success "Data directory ready"
 
-    # Step 7: Start the agent
-    echo ""
-    print_info "Starting Runyx Sync Agent..."
+    # Step 7: Start the agent (only if Docker is OK)
+    if [ "$DOCKER_OK" = true ]; then
+        echo ""
+        print_info "Starting Runyx Sync Agent..."
 
-    docker compose down 2>/dev/null || true
-    docker compose up -d --build
+        docker compose down 2>/dev/null || true
+        docker compose up -d --build
 
-    if [ $? -eq 0 ]; then
-        print_success "Agent container started successfully!"
+        if [ $? -eq 0 ]; then
+            print_success "Agent container started successfully!"
+        else
+            print_error "Failed to start agent container"
+            print_warning "You can try starting manually: docker compose up -d --build"
+            DOCKER_OK=false
+        fi
+
+        if [ "$DOCKER_OK" = true ]; then
+            # Step 8: Wait for container to be ready
+            echo ""
+            print_info "Waiting for agent to initialize..."
+            sleep 5
+
+            # Step 9: Check container status
+            echo ""
+            print_info "Checking container status..."
+            docker compose ps
+
+            # Step 10: Test connectivity
+            echo ""
+            print_info "Testing connectivity..."
+            echo ""
+
+            test_metrics
+            echo ""
+            test_webui
+        fi
     else
-        print_error "Failed to start agent container"
-        exit 1
+        echo ""
+        print_warning "Skipping agent startup due to Docker issues"
+        print_info "Configuration files are ready. To start the agent manually:"
+        echo ""
+        echo "  1. Ensure Docker is running:"
+        echo "     sudo systemctl start docker"
+        echo ""
+        echo "  2. Start the agent:"
+        echo "     docker compose up -d --build"
+        echo ""
+        echo "  3. Check status:"
+        echo "     docker compose ps"
+        echo "     docker compose logs -f"
+        echo ""
     fi
-
-    # Step 8: Wait for container to be ready
-    echo ""
-    print_info "Waiting for agent to initialize..."
-    sleep 5
-
-    # Step 9: Check container status
-    echo ""
-    print_info "Checking container status..."
-    docker compose ps
-
-    # Step 10: Test connectivity
-    echo ""
-    print_info "Testing connectivity..."
-    echo ""
-
-    test_metrics
-    echo ""
-    test_webui
 
     # Final summary
     echo ""
     echo "========================================="
-    echo "  Setup Complete!"
-    echo "========================================="
-    echo ""
-    print_success "Runyx Sync Agent is running!"
-    echo ""
-    echo "Useful commands:"
-    echo "  docker compose logs -f       # View logs"
-    echo "  docker compose ps            # Check status"
-    echo "  docker compose down          # Stop agent"
-    echo "  docker compose restart       # Restart agent"
-    echo ""
-    echo "Endpoints:"
-    echo "  Metrics: http://localhost:9090/metrics"
-    echo "  WebUI:   http://localhost:8080"
-    echo ""
-
-    print_info "To view logs, run: docker compose logs -f"
+    if [ "$DOCKER_OK" = true ]; then
+        echo "  Setup Complete!"
+        echo "========================================="
+        echo ""
+        print_success "Runyx Sync Agent is running!"
+        echo ""
+        echo "Useful commands:"
+        echo "  docker compose logs -f       # View logs"
+        echo "  docker compose ps            # Check status"
+        echo "  docker compose down          # Stop agent"
+        echo "  docker compose restart       # Restart agent"
+        echo ""
+        echo "Endpoints:"
+        echo "  Metrics: http://localhost:9090/metrics"
+        echo "  WebUI:   http://localhost:8080"
+        echo ""
+        print_info "To view logs, run: docker compose logs -f"
+    else
+        echo "  Setup Partially Complete"
+        echo "========================================="
+        echo ""
+        print_warning "Configuration files are ready, but Docker needs manual intervention"
+        echo ""
+        echo "To complete the setup:"
+        echo ""
+        echo "  1. Start Docker daemon:"
+        echo "     sudo systemctl start docker"
+        echo ""
+        echo "  2. Run the agent:"
+        echo "     docker compose up -d --build"
+        echo ""
+        echo "  3. Check if running:"
+        echo "     docker compose ps"
+        echo "     docker compose logs -f"
+        echo ""
+        print_info "Or simply run this script again after Docker is running: ./run.sh"
+    fi
     echo ""
 }
 
