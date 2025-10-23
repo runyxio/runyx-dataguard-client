@@ -1,0 +1,5 @@
+.env
+config.yaml
+data/
+data/keys/agent-private.pem
+data/keys/agent-public.pem
