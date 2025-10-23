@@ -1,14 +1,17 @@
 # Dockerfile for Runyx Sync Agent (Production)
 # This container runs the pre-built agent binary
 
-FROM alpine:latest
+FROM debian:bookworm-slim
 
 # Install runtime dependencies
-RUN apk --no-cache add ca-certificates tzdata
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    tzdata \
+    && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user
-RUN addgroup -g 1000 agent && \
-    adduser -D -u 1000 -G agent agent
+RUN groupadd -g 1000 agent && \
+    useradd -r -u 1000 -g agent -d /app -s /bin/bash agent
 
 # Create directories
 RUN mkdir -p /app /etc/runyx /data && \
