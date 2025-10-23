@@ -155,6 +155,44 @@ start_docker_service() {
     fi
 }
 
+# Setup Docker group permissions
+setup_docker_permissions() {
+    print_info "Checking Docker group permissions..."
+
+    # Check if docker group exists, create if it doesn't
+    if ! getent group docker > /dev/null 2>&1; then
+        print_info "Creating docker group..."
+        sudo groupadd docker
+        print_success "Docker group created"
+    fi
+
+    # Check if current user is in docker group
+    if ! groups $USER | grep -q docker; then
+        print_warning "User '$USER' is not in the docker group"
+        print_info "Adding user '$USER' to docker group..."
+
+        sudo usermod -aG docker $USER
+
+        print_success "User '$USER' added to docker group"
+        print_warning "IMPORTANT: You need to log out and log back in for group changes to take effect"
+        print_info "Alternatively, you can run: newgrp docker"
+        echo ""
+
+        # Ask user if they want to continue with current session or restart
+        read -p "Do you want to try with the current session using 'newgrp docker'? (y/n) " -n 1 -r
+        echo
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            print_info "Attempting to apply group changes to current session..."
+            exec sg docker "$0 $@"
+        else
+            print_warning "Please log out and log back in, then run this script again"
+            exit 0
+        fi
+    else
+        print_success "User '$USER' is already in the docker group"
+    fi
+}
+
 # Check if Docker daemon is running
 check_docker_running() {
     # Try docker info first (most reliable)
@@ -167,9 +205,9 @@ check_docker_running() {
     if command -v systemctl &> /dev/null; then
         if systemctl is-active --quiet docker 2>/dev/null; then
             print_warning "Docker service is active but 'docker info' failed. May be a permissions issue."
-            print_info "Tip: Try running 'sudo usermod -aG docker $USER' and re-login"
-            # Return 0 since service is running, even if we can't connect
-            return 0
+            print_info "This is likely a Docker group permissions issue"
+            # Return 1 to trigger permission setup
+            return 1
         fi
     fi
 
@@ -264,6 +302,9 @@ main() {
         echo
         if [[ $REPLY =~ ^[Yy]$ ]]; then
             install_docker
+            # Setup permissions after fresh install
+            echo ""
+            setup_docker_permissions
         else
             print_error "Docker is required to run the agent. Please install Docker manually."
             exit 1
@@ -283,17 +324,24 @@ main() {
         sleep 3
 
         if ! check_docker_running; then
-            print_warning "Failed to start Docker daemon automatically."
-            echo ""
-            print_info "Please start Docker manually with one of these commands:"
-            echo "  sudo systemctl start docker"
-            echo "  sudo service docker start"
-            echo ""
-            print_info "After starting Docker, you can:"
-            echo "  1. Run this script again: ./run.sh"
-            echo "  2. Or run manually: docker compose up -d --build"
-            echo ""
-            DOCKER_OK=false
+            # Docker is running but we can't connect - likely a permissions issue
+            if command -v systemctl &> /dev/null && systemctl is-active --quiet docker 2>/dev/null; then
+                echo ""
+                print_warning "Docker is running but you don't have permission to use it"
+                setup_docker_permissions
+            else
+                print_warning "Failed to start Docker daemon automatically."
+                echo ""
+                print_info "Please start Docker manually with one of these commands:"
+                echo "  sudo systemctl start docker"
+                echo "  sudo service docker start"
+                echo ""
+                print_info "After starting Docker, you can:"
+                echo "  1. Run this script again: ./run.sh"
+                echo "  2. Or run manually: docker compose up -d --build"
+                echo ""
+                DOCKER_OK=false
+            fi
         fi
     fi
 
