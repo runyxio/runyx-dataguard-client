@@ -45,7 +45,9 @@ cp .env.example .env
 The script will:
 - Automatically detect your distribution (Ubuntu, Debian, CentOS, RHEL, Fedora, Amazon Linux)
 - Install Docker if not present
+- Configure Docker group permissions for the current user
 - Start Docker service via systemd
+- Generate RSA encryption keys automatically (data/keys/agent-private.pem and agent-public.pem)
 - Configure and start the agent
 - Test ports 9090 (metrics) and 8080 (WebUI)
 

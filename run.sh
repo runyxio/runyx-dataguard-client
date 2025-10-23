@@ -375,9 +375,36 @@ main() {
         print_success "config.yaml found"
     fi
 
-    # Step 6: Create data directory
-    mkdir -p data
+    # Step 6: Create data directory and generate encryption keys
+    mkdir -p data/keys
     print_success "Data directory ready"
+
+    # Generate RSA keys for encryption if they don't exist
+    if [ ! -f data/keys/agent-private.pem ]; then
+        print_info "Generating RSA encryption keys for agent..."
+
+        if command -v openssl &> /dev/null; then
+            # Generate private key
+            openssl genrsa -out data/keys/agent-private.pem 2048 2>/dev/null
+
+            # Extract public key
+            openssl rsa -in data/keys/agent-private.pem -pubout -out data/keys/agent-public.pem 2>/dev/null
+
+            # Set proper permissions
+            chmod 600 data/keys/agent-private.pem
+            chmod 644 data/keys/agent-public.pem
+
+            print_success "RSA encryption keys generated successfully"
+            print_info "Private key: data/keys/agent-private.pem"
+            print_info "Public key: data/keys/agent-public.pem"
+        else
+            print_warning "OpenSSL not found. Encryption keys not generated."
+            print_info "Install OpenSSL to enable encryption: sudo apt-get install openssl"
+            print_info "Or the agent will run without encryption (less secure)"
+        fi
+    else
+        print_success "RSA encryption keys already exist"
+    fi
 
     # Step 7: Start the agent (only if Docker is OK)
     if [ "$DOCKER_OK" = true ]; then
