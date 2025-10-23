@@ -6,13 +6,15 @@ services:
     container_name: runyx-sync-agent
     restart: unless-stopped
 
-    # Environment variables (REQUIRED)
-    environment:
-      - AGENT_TOKEN=${AGENT_TOKEN}
-      - TENANT_ID=${TENANT_ID}
-      - AGENT_ID=${AGENT_ID}
-      - AGENT_CLOUD_URL=${AGENT_CLOUD_URL:-wss://api.runyx.io/ws}
-      - AGENT_LOG_LEVEL=${AGENT_LOG_LEVEL:-info}
+    # Command with explicit flags
+    command: >
+      start
+      --config /etc/runyx/config.yaml
+      --agent-token ${AGENT_TOKEN}
+      --tenant-id ${TENANT_ID}
+      --agent-id ${AGENT_ID}
+      --cloud-url ${AGENT_CLOUD_URL:-wss://dataguard.runyx.io/ws}
+      --log-level ${AGENT_LOG_LEVEL:-info}
 
     # Ports
     ports:

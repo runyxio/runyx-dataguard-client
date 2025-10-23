@@ -370,6 +370,7 @@ main() {
         print_warning "config.yaml not found, copying from example..."
         cp config.example.yaml config.yaml
         print_success "Created config.yaml from config.example.yaml"
+        print_info "Note: Configuration is primarily set via environment variables in .env"
     else
         print_success "config.yaml found"
     fi
