@@ -22,7 +22,7 @@ reconnect_backoff: "5s"         # Backoff interval for WebSocket reconnection
 max_reconnect_attempts: 10      # Maximum number of reconnection attempts (0 = infinite)
 
 # Data directory
-data_dir: "./data"              # Directory for agent data and temporary files
+data_dir: "/data"               # Directory for agent data and temporary files
 
 # Metrics and monitoring
 enable_metrics: true            # Enable Prometheus metrics endpoint
