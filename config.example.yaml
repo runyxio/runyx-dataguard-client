@@ -1,0 +1,75 @@
+# Runyx Sync Agent Configuration
+# Copy this file to config.yaml and customize for your environment
+
+# Cloud connection settings
+cloud_url: "wss://dataguard.runyx.io/ws"  # WebSocket URL for cloud connection
+
+# Agent identification (REQUIRED - set via environment variables)
+agent_token: "${AGENT_TOKEN}"         # Agent authentication token
+tenant_id: "${TENANT_ID}"             # Tenant ID
+agent_id: "${AGENT_ID}"               # Unique agent ID
+
+# Logging
+log_level: "info"  # Options: debug, info, warn, error
+
+# Connection pool settings
+max_connections_per_server: 10  # Maximum concurrent connections per database server
+
+# Task execution settings
+task_timeout: "5m"              # Default timeout for task execution
+heartbeat_interval: "30s"       # Interval for sending heartbeat to cloud
+reconnect_backoff: "5s"         # Backoff interval for WebSocket reconnection
+max_reconnect_attempts: 10      # Maximum number of reconnection attempts (0 = infinite)
+
+# Data directory
+data_dir: "./data"              # Directory for agent data and temporary files
+
+# Metrics and monitoring
+enable_metrics: true            # Enable Prometheus metrics endpoint
+metrics_port: 9090              # Port for Prometheus metrics
+
+# Encryption settings (optional)
+encryption:
+  enabled: true                                      # Enable envelope encryption
+  rsa_key_path: "/etc/runyx/agent.key"             # Path to RSA private key (PEM format)
+  rsa_cert_path: "/etc/runyx/agent.crt"            # Path to RSA certificate (PEM format)
+
+# Secrets management (optional)
+secrets:
+  provider: "local"             # Options: local, aws, azure, vault
+  cache_ttl: "5m"              # Cache TTL for secrets
+
+  # AWS Secrets Manager (only if provider=aws)
+  aws:
+    region: "us-east-1"        # AWS region
+
+  # Azure Key Vault (only if provider=azure)
+  azure:
+    vault_url: "https://myvault.vault.azure.net"  # Azure Key Vault URL
+
+  # HashiCorp Vault (only if provider=vault)
+  vault:
+    address: "https://vault.example.com:8200"  # Vault server address
+    token: "${VAULT_TOKEN}"                     # Vault authentication token
+    path: "secret/data"                         # KV v2 mount path
+
+# Connection cleanup
+cleanup:
+  enabled: true                # Enable periodic connection cleanup
+  cleanup_interval: "10m"      # How often to run cleanup
+  idle_timeout: "30m"          # Close connections idle for this duration
+
+# Advanced settings
+advanced:
+  query_timeout: "30s"         # Default query timeout
+  max_query_rows: 10000        # Maximum rows returned per query
+  connection_retry_attempts: 3 # Number of connection retry attempts
+  connection_retry_delay: "2s" # Delay between connection retries
+
+# Example environment variables:
+# export AGENT_TOKEN="your-agent-token-here"
+# export AGENT_TENANT_ID="your-tenant-id"
+# export AGENT_AGENT_ID="agent-001"
+# export AGENT_CLOUD_URL="wss://dataguard.runyx.io/ws"
+# export AGENT_LOG_LEVEL="debug"
+# export VAULT_TOKEN="your-vault-token"

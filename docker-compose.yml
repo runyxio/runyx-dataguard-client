@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  sync-agent:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: runyx-sync-agent
+    restart: unless-stopped
+
+    # Environment variables (REQUIRED)
+    environment:
+      - AGENT_TOKEN=${AGENT_TOKEN}
+      - TENANT_ID=${TENANT_ID}
+      - AGENT_ID=${AGENT_ID}
+      - AGENT_CLOUD_URL=${AGENT_CLOUD_URL:-wss://api.runyx.io/ws}
+      - AGENT_LOG_LEVEL=${AGENT_LOG_LEVEL:-info}
+
+    # Ports
+    ports:
+      - "9090:9090"  # Prometheus metrics
+      - "8080:8080"  # WebUI (if available)
+
+    # Volumes
+    volumes:
+      - ./data:/data
+      - ./config.yaml:/etc/runyx/config.yaml:ro
+
+    # Logging
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
