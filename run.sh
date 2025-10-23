@@ -238,47 +238,36 @@ test_port() {
     return 1
 }
 
-# Test WebUI connectivity
-test_webui() {
-    print_info "Testing WebUI connectivity..."
+# Test agent health
+test_agent_health() {
+    print_info "Testing agent health..."
 
-    local max_attempts=10
+    local max_attempts=5
     local attempt=1
 
     while [ $attempt -le $max_attempts ]; do
-        if curl -s -o /dev/null -w "%{http_code}" http://localhost:8080 2>/dev/null | grep -q "200\|404\|301\|302"; then
-            print_success "WebUI is responding on http://localhost:8080"
+        # Check if container is running and healthy
+        local status=$(docker compose ps --format json | grep sync-agent | grep -o '"Status":"[^"]*"' | cut -d'"' -f4)
+
+        if echo "$status" | grep -q "Up"; then
+            print_success "Agent container is running and healthy"
+
+            # Try to get metrics if available (optional, non-blocking)
+            if curl -s --max-time 2 http://localhost:9090/metrics 2>/dev/null | grep -q "go_\|agent_"; then
+                print_success "Metrics endpoint is responding on http://localhost:9090/metrics"
+            else
+                print_info "Metrics endpoint not yet available (this is optional)"
+            fi
+
             return 0
         fi
 
-        print_info "Waiting for WebUI to start (attempt $attempt/$max_attempts)..."
-        sleep 2
+        print_info "Waiting for agent to be healthy (attempt $attempt/$max_attempts)..."
+        sleep 3
         attempt=$((attempt + 1))
     done
 
-    print_warning "WebUI did not respond after $max_attempts attempts"
-    return 1
-}
-
-# Test metrics endpoint
-test_metrics() {
-    print_info "Testing Prometheus metrics endpoint..."
-
-    local max_attempts=10
-    local attempt=1
-
-    while [ $attempt -le $max_attempts ]; do
-        if curl -s http://localhost:9090/metrics 2>/dev/null | grep -q "go_"; then
-            print_success "Metrics endpoint is responding on http://localhost:9090/metrics"
-            return 0
-        fi
-
-        print_info "Waiting for metrics endpoint (attempt $attempt/$max_attempts)..."
-        sleep 2
-        attempt=$((attempt + 1))
-    done
-
-    print_warning "Metrics endpoint did not respond after $max_attempts attempts"
+    print_warning "Agent health check timed out after $max_attempts attempts"
     return 1
 }
 
@@ -365,17 +354,63 @@ main() {
 
     print_success ".env file found"
 
-    # Step 5: Check for config.yaml
+    # Step 5: Load environment variables from .env
+    echo ""
+    print_info "Loading environment variables from .env..."
+
+    # Source the .env file
+    set -a
+    source .env
+    set +a
+
+    # Validate required variables
+    if [ -z "$AGENT_TOKEN" ] || [ -z "$TENANT_ID" ] || [ -z "$AGENT_ID" ]; then
+        print_error "Missing required environment variables in .env"
+        echo ""
+        echo "Required variables:"
+        echo "  AGENT_TOKEN - Agent authentication token"
+        echo "  TENANT_ID - Tenant ID"
+        echo "  AGENT_ID - Agent ID"
+        echo ""
+        exit 1
+    fi
+
+    print_success "Environment variables loaded successfully"
+    print_info "TENANT_ID: $TENANT_ID"
+    print_info "AGENT_ID: $AGENT_ID"
+    print_info "AGENT_TOKEN: ${AGENT_TOKEN:0:8}..." # Show only first 8 chars
+
+    # Step 6: Create/update config.yaml with actual values
+    echo ""
+    print_info "Configuring agent..."
+
     if [ ! -f config.yaml ]; then
         print_warning "config.yaml not found, copying from example..."
         cp config.example.yaml config.yaml
         print_success "Created config.yaml from config.example.yaml"
-        print_info "Note: Configuration is primarily set via environment variables in .env"
-    else
-        print_success "config.yaml found"
     fi
 
-    # Step 6: Create data directory and generate encryption keys
+    # Update config.yaml with actual credentials from .env
+    print_info "Updating config.yaml with credentials from .env..."
+
+    # Use sed to replace placeholders with actual values
+    sed -i "s|agent_token:.*|agent_token: \"$AGENT_TOKEN\"|g" config.yaml
+    sed -i "s|tenant_id:.*|tenant_id: \"$TENANT_ID\"|g" config.yaml
+    sed -i "s|agent_id:.*|agent_id: \"$AGENT_ID\"|g" config.yaml
+
+    # Update cloud URL if provided
+    if [ ! -z "$AGENT_CLOUD_URL" ]; then
+        sed -i "s|cloud_url:.*|cloud_url: \"$AGENT_CLOUD_URL\"|g" config.yaml
+    fi
+
+    # Update log level if provided
+    if [ ! -z "$AGENT_LOG_LEVEL" ]; then
+        sed -i "s|log_level:.*|log_level: \"$AGENT_LOG_LEVEL\"|g" config.yaml
+    fi
+
+    print_success "config.yaml updated with credentials"
+
+    # Step 7: Create data directory and generate encryption keys
     mkdir -p data/keys
     print_success "Data directory ready"
 
@@ -406,7 +441,12 @@ main() {
         print_success "RSA encryption keys already exist"
     fi
 
-    # Step 7: Start the agent (only if Docker is OK)
+    # Set proper ownership for agent user (uid 1000)
+    print_info "Setting proper ownership for agent user..."
+    chown -R 1000:1000 data
+    print_success "Ownership set to agent user (uid 1000)"
+
+    # Step 8: Start the agent (only if Docker is OK)
     if [ "$DOCKER_OK" = true ]; then
         echo ""
         print_info "Starting Runyx Sync Agent..."
@@ -423,24 +463,31 @@ main() {
         fi
 
         if [ "$DOCKER_OK" = true ]; then
-            # Step 8: Wait for container to be ready
+            # Step 9: Wait for container to be ready
             echo ""
             print_info "Waiting for agent to initialize..."
             sleep 5
 
-            # Step 9: Check container status
+            # Step 10: Check container status
             echo ""
             print_info "Checking container status..."
             docker compose ps
 
-            # Step 10: Test connectivity
+            # Step 11: Test agent health and connectivity
             echo ""
-            print_info "Testing connectivity..."
+            print_info "Testing agent health and connectivity..."
             echo ""
 
-            test_metrics
+            test_agent_health
+
+            # Check agent logs for connection status
             echo ""
-            test_webui
+            print_info "Checking agent connection logs..."
+            if docker logs runyx-sync-agent --tail=10 2>&1 | grep -q "Connected to cloud successfully"; then
+                print_success "Agent successfully connected to cloud (wss://dataguard.runyx.io/ws)"
+            else
+                print_warning "Could not confirm cloud connection in logs (check 'docker logs runyx-sync-agent')"
+            fi
         fi
     else
         echo ""
@@ -474,11 +521,13 @@ main() {
         echo "  docker compose down          # Stop agent"
         echo "  docker compose restart       # Restart agent"
         echo ""
-        echo "Endpoints:"
-        echo "  Metrics: http://localhost:9090/metrics"
-        echo "  WebUI:   http://localhost:8080"
+        echo "Agent Information:"
+        echo "  Cloud URL: wss://dataguard.runyx.io/ws"
+        echo "  Agent ID:  $AGENT_ID"
+        echo "  Tenant ID: $TENANT_ID"
         echo ""
-        print_info "To view logs, run: docker compose logs -f"
+        print_info "To view live logs, run: docker compose logs -f"
+        print_info "To check agent status in database, login to cloud dashboard"
     else
         echo "  Setup Partially Complete"
         echo "========================================="

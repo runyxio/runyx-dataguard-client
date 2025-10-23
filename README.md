@@ -26,8 +26,12 @@ The `run.sh` script performs all configuration automatically, including:
 - Linux distribution detection
 - Docker installation (if needed)
 - Docker service initialization
-- Agent configuration and startup
-- Connectivity tests
+- **Loading credentials from `.env` file**
+- **Auto-populating `config.yaml` with credentials**
+- **RSA key generation for encryption**
+- **Setting proper file ownership for container user**
+- Agent startup with Docker Compose
+- Health checks and connectivity verification
 
 **Usage:**
 

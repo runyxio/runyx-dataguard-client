@@ -4,10 +4,10 @@
 # Cloud connection settings
 cloud_url: "wss://dataguard.runyx.io/ws"  # WebSocket URL for cloud connection
 
-# Agent identification (REQUIRED - set via environment variables)
-agent_token: "${AGENT_TOKEN}"         # Agent authentication token
-tenant_id: "${TENANT_ID}"             # Tenant ID
-agent_id: "${AGENT_ID}"               # Unique agent ID
+# Agent identification (REQUIRED - will be populated from .env by run.sh)
+agent_token: "${AGENT_TOKEN}"
+tenant_id: "${TENANT_ID}"
+agent_id: "${AGENT_ID}"
 
 # Logging
 log_level: "info"  # Options: debug, info, warn, error
