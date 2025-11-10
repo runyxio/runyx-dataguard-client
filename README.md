@@ -218,6 +218,56 @@ netstat -tlnp | grep 9090
 - Credentials are stored in environment variables (not in code)
 - The binary is statically compiled with no external dependencies
 
+### SSL/TLS Certificates
+
+The agent connects to the Runyx Cloud API at `apidg.runyx.io`, which uses **ZeroSSL certificates**.
+
+**✅ Automatic Certificate Installation:**
+
+The Docker image automatically installs the necessary ZeroSSL CA certificates during build time. When you run:
+
+```bash
+docker compose up -d --build
+```
+
+The container will:
+1. Install the ZeroSSL CA bundle from `certs/zerossl-ca-bundle.crt`
+2. Update the system certificate store
+3. Verify SSL/TLS connections to `apidg.runyx.io`
+
+**No manual intervention is required!** The certificates are embedded in the Docker image.
+
+**Files:**
+- `certs/zerossl-ca-bundle.crt` - ZeroSSL intermediate CA certificate
+- Installed to: `/usr/local/share/ca-certificates/zerossl-runyx-cloud.crt` (inside container)
+
+**Troubleshooting SSL Errors:**
+
+If you see an error like:
+```
+x509: certificate signed by unknown authority
+```
+
+This means the CA certificates were not installed. Solutions:
+
+1. **Rebuild the Docker image:**
+   ```bash
+   docker compose down
+   docker compose up -d --build
+   ```
+
+2. **Verify the `certs/` directory exists:**
+   ```bash
+   ls -la certs/
+   # Should show: zerossl-ca-bundle.crt
+   ```
+
+3. **Check certificates inside the container:**
+   ```bash
+   docker exec runyx-sync-agent ls -la /usr/local/share/ca-certificates/
+   docker exec runyx-sync-agent cat /etc/ssl/certs/ca-certificates.crt | grep -i zerossl
+   ```
+
 ## Data Persistence
 
 The agent stores temporary data in the `/data` directory, which is mounted as a Docker volume. This ensures data persistence across container restarts.

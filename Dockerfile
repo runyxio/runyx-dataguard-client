@@ -9,6 +9,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     tzdata \
     && rm -rf /var/lib/apt/lists/*
 
+# Install ZeroSSL CA certificates for Runyx Cloud API (apidg.runyx.io)
+# This is required to trust the SSL certificate used by the Runyx Cloud
+COPY certs/zerossl-ca-bundle.crt /usr/local/share/ca-certificates/zerossl-runyx-cloud.crt
+RUN chmod 644 /usr/local/share/ca-certificates/zerossl-runyx-cloud.crt && \
+    update-ca-certificates
+
 # Create non-root user
 RUN groupadd -g 1000 agent && \
     useradd -r -u 1000 -g agent -d /app -s /bin/bash agent
