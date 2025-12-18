@@ -9,229 +9,43 @@ Documentacion completa de la API REST para la plataforma de monitoreo de bases d
 ## Indice
 
 1. [Autenticacion](#autenticacion)
-2. [Claves de API](#claves-de-api)
-3. [Gestion de Servidores](#gestion-de-servidores)
-4. [Gestion de Bases de Datos](#gestion-de-bases-de-datos)
-5. [Gestion de Permisos](#gestion-de-permisos)
-6. [Gestion de Usuarios de Servicio](#gestion-de-usuarios-de-servicio)
-7. [Gestion de Agentes](#gestion-de-agentes)
-8. [Auditoria de Consultas](#auditoria-de-consultas)
-9. [Gestion de Usuarios](#gestion-de-usuarios)
-10. [Salud y Monitoreo](#salud-y-monitoreo)
-11. [Manejo de Errores](#manejo-de-errores)
-12. [Limites de Tasa](#limites-de-tasa)
+2. [Gestion de Servidores](#gestion-de-servidores)
+3. [Gestion de Bases de Datos](#gestion-de-bases-de-datos)
+4. [Gestion de Permisos](#gestion-de-permisos)
+5. [Gestion de Usuarios de Servicio](#gestion-de-usuarios-de-servicio)
+6. [Gestion de Agentes](#gestion-de-agentes)
+7. [Auditoria de Consultas](#auditoria-de-consultas)
+8. [Gestion de Usuarios](#gestion-de-usuarios)
+9. [Salud y Monitoreo](#salud-y-monitoreo)
+10. [Manejo de Errores](#manejo-de-errores)
+11. [Limites de Tasa](#limites-de-tasa)
 
 ---
 
 ## Autenticacion
 
-La API soporta dos metodos de autenticacion:
+La API utiliza autenticacion por Clave de API para acceso programatico.
 
-### 1. JWT (Bearer Token)
+### Autenticacion por Clave de API
 
-Usado para aplicaciones web y sesiones interactivas.
+Todas las solicitudes deben incluir los siguientes headers:
 
 ```bash
-# Iniciar sesion para obtener tokens
-curl -X POST https://apidg.runyx.io/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{
-    "email": "usuario@empresa.com",
-    "password": "tu-contrasena"
-  }'
-
-# Respuesta
-{
-  "success": true,
-  "data": {
-    "accessToken": "eyJhbG...",
-    "refreshToken": "eyJhbG...",
-    "user": {
-      "id": "uuid",
-      "email": "usuario@empresa.com",
-      "role": "ADMIN"
-    }
-  }
-}
-
-# Usar el token en solicitudes posteriores
-curl -X GET https://apidg.runyx.io/api/servers \
-  -H "Authorization: Bearer eyJhbG..."
+X-API-Key: runyx_ak_tu_clave_api
+X-API-Secret: runyx_sk_tu_clave_secreta
 ```
 
-### 2. Claves de API
-
-Usado para acceso programatico y automatizacion. Las claves de API proporcionan control de acceso basado en alcances.
-
+**Ejemplo:**
 ```bash
-# Usar autenticacion por Clave de API
 curl -X GET https://apidg.runyx.io/api/servers \
   -H "X-API-Key: runyx_ak_tu_clave_api" \
   -H "X-API-Secret: runyx_sk_tu_clave_secreta"
 ```
 
----
+### Alcances Disponibles
 
-## Endpoints de Autenticacion
+Las claves de API tienen permisos basados en alcances:
 
-### Iniciar Sesion
-
-Autenticar usuario con correo electronico y contrasena.
-
-```http
-POST /api/auth/login
-Content-Type: application/json
-
-{
-  "email": "usuario@empresa.com",
-  "password": "tu-contrasena"
-}
-```
-
-**Respuesta:**
-```json
-{
-  "success": true,
-  "data": {
-    "accessToken": "eyJhbG...",
-    "refreshToken": "eyJhbG...",
-    "expiresIn": 21600,
-    "user": {
-      "id": "550e8400-e29b-41d4-a716-446655440000",
-      "email": "usuario@empresa.com",
-      "username": "juanperez",
-      "fullName": "Juan Perez",
-      "role": "ADMIN",
-      "tenantId": "tenant-uuid"
-    }
-  }
-}
-```
-
-### Registro (Crear Tenant y Usuario)
-
-Crear un nuevo tenant con el primer usuario administrador.
-
-```http
-POST /api/auth/signup
-Content-Type: application/json
-
-{
-  "email": "admin@nuevaempresa.com",
-  "password": "ContrasenaSegura123!",
-  "fullName": "Juan Perez",
-  "companyName": "Nueva Empresa S.A.",
-  "planId": "plan-uuid"
-}
-```
-
-**Requisitos de Contrasena:**
-- Minimo de 8 caracteres
-- Al menos una letra mayuscula
-- Al menos una letra minuscula
-- Al menos un numero
-- Al menos un caracter especial
-
-### Actualizar Token
-
-Actualizar un token de acceso expirado.
-
-```http
-POST /api/auth/refresh
-Content-Type: application/json
-
-{
-  "refreshToken": "eyJhbG..."
-}
-```
-
-### Olvide mi Contrasena
-
-Solicitar correo de restablecimiento de contrasena.
-
-```http
-POST /api/auth/forgot-password
-Content-Type: application/json
-
-{
-  "email": "usuario@empresa.com"
-}
-```
-
-### Restablecer Contrasena
-
-Restablecer contrasena usando el token del correo.
-
-```http
-POST /api/auth/reset-password
-Content-Type: application/json
-
-{
-  "token": "token-de-restablecimiento-del-correo",
-  "password": "NuevaContrasenaSegura123!"
-}
-```
-
-### Verificar Token
-
-Verificar si el token actual es valido.
-
-```http
-GET /api/auth/verify
-Authorization: Bearer eyJhbG...
-```
-
-### Cerrar Sesion
-
-Invalidar la sesion actual.
-
-```http
-POST /api/auth/logout
-Authorization: Bearer eyJhbG...
-```
-
----
-
-## Claves de API
-
-Las claves de API proporcionan acceso programatico con permisos granulares.
-
-### Listar Claves de API
-
-```http
-GET /api/api-keys
-Authorization: Bearer eyJhbG...
-```
-
-**Parametros de Query:**
-| Parametro | Tipo | Descripcion |
-|-----------|------|-------------|
-| `userId` | UUID | Filtrar por ID del usuario |
-| `includeRevoked` | boolean | Incluir claves revocadas |
-| `includeExpired` | boolean | Incluir claves expiradas |
-
-### Crear Clave de API
-
-```http
-POST /api/api-keys
-Authorization: Bearer eyJhbG...
-Content-Type: application/json
-
-{
-  "name": "Integracion Produccion",
-  "scopes": [
-    "servers:read",
-    "servers:write",
-    "permissions:read",
-    "permissions:write"
-  ],
-  "rateLimit": 1000,
-  "ipWhitelist": ["192.168.1.0/24", "10.0.0.1"],
-  "expiryDays": 365
-}
-```
-
-**Alcances Disponibles:**
 | Alcance | Descripcion |
 |---------|-------------|
 | `servers:read` | Leer informacion de servidores |
@@ -241,46 +55,12 @@ Content-Type: application/json
 | `permissions:read` | Leer permisos |
 | `permissions:write` | Otorgar permisos |
 | `permissions:delete` | Revocar permisos |
-| `api_keys:read` | Leer claves de API |
-| `api_keys:write` | Gestionar claves de API |
 | `agents:read` | Leer informacion de agentes |
 | `agents:write` | Gestionar agentes |
 | `audit:read` | Leer logs de auditoria |
 | `query_audit:read` | Leer logs de auditoria de consultas |
 | `service_users:read` | Leer usuarios de servicio |
 | `service_users:write` | Gestionar usuarios de servicio |
-
-**Respuesta:**
-```json
-{
-  "success": true,
-  "data": {
-    "id": "key-uuid",
-    "name": "Integracion Produccion",
-    "apiKey": "runyx_ak_e9dea10edac7d072...",
-    "secretKey": "runyx_sk_56abbdb203712cc9...",
-    "scopes": ["servers:read", "servers:write"],
-    "expiresAt": "2026-01-01T00:00:00.000Z"
-  },
-  "message": "Clave de API creada. Guarde la clave secreta de forma segura - no se mostrara nuevamente."
-}
-```
-
-### Rotar Clave de API
-
-Generar nuevas credenciales para una clave existente.
-
-```http
-POST /api/api-keys/:id/rotate
-Authorization: Bearer eyJhbG...
-```
-
-### Revocar Clave de API
-
-```http
-DELETE /api/api-keys/:id
-Authorization: Bearer eyJhbG...
-```
 
 ---
 
@@ -292,30 +72,61 @@ Gestionar servidores de bases de datos a monitorear.
 
 ```http
 GET /api/servers
-Authorization: Bearer eyJhbG...
+X-API-Key: runyx_ak_...
+X-API-Secret: runyx_sk_...
 ```
 
-**Usando Clave de API:**
+**Ejemplo:**
 ```bash
-curl -X GET https://apidg.runyx.io/api/servers \
+curl -X GET "https://apidg.runyx.io/api/servers" \
   -H "X-API-Key: runyx_ak_..." \
   -H "X-API-Secret: runyx_sk_..."
+```
+
+**Respuesta:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "name": "PostgreSQL Produccion",
+      "host": "db.ejemplo.com",
+      "port": 5432,
+      "type": "postgres",
+      "status": "ACTIVE",
+      "environment": "PRODUCTION",
+      "managementMode": "CLOUD",
+      "databaseCount": 5,
+      "tableCount": 120
+    }
+  ]
+}
 ```
 
 ### Obtener Detalles del Servidor
 
 ```http
 GET /api/servers/:id
-Authorization: Bearer eyJhbG...
+X-API-Key: runyx_ak_...
+X-API-Secret: runyx_sk_...
+```
+
+**Ejemplo:**
+```bash
+curl -X GET "https://apidg.runyx.io/api/servers/550e8400-e29b-41d4-a716-446655440000" \
+  -H "X-API-Key: runyx_ak_..." \
+  -H "X-API-Secret: runyx_sk_..."
 ```
 
 ### Crear Servidor (Modo CLOUD)
 
-Crear un servidor que sera monitoreado directamente desde la nube.
+Crear un servidor que sera monitoreado directamente desde la nube. **El descubrimiento automatico de bases de datos, esquemas y tablas se realiza automaticamente.**
 
 ```http
 POST /api/servers
-Authorization: Bearer eyJhbG...
+X-API-Key: runyx_ak_...
+X-API-Secret: runyx_sk_...
 Content-Type: application/json
 
 {
@@ -350,13 +161,61 @@ Content-Type: application/json
 | `QA` | Calidad / Pruebas |
 | `PRODUCTION` | Ambiente de produccion |
 
+**Ejemplo:**
+```bash
+curl -X POST "https://apidg.runyx.io/api/servers" \
+  -H "X-API-Key: runyx_ak_..." \
+  -H "X-API-Secret: runyx_sk_..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "PostgreSQL Produccion",
+    "host": "db.ejemplo.com",
+    "port": 5432,
+    "type": "postgres",
+    "username": "usuario_dataguard",
+    "password": "contrasena-segura",
+    "environment": "PRODUCTION",
+    "useSsl": true
+  }'
+```
+
+**Respuesta:**
+```json
+{
+  "success": true,
+  "data": {
+    "server": {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "name": "PostgreSQL Produccion",
+      "host": "db.ejemplo.com",
+      "port": 5432,
+      "type": "postgres",
+      "status": "active",
+      "environment": "PRODUCTION",
+      "management_mode": "CLOUD"
+    },
+    "discovery": {
+      "success": true,
+      "mode": "CLOUD",
+      "message": "Discovered 5 databases",
+      "metadata": {
+        "databases": [
+          {"name": "miapp", "owner": "postgres", "size_mb": 1024, "table_count": 45}
+        ]
+      }
+    }
+  }
+}
+```
+
 ### Crear Servidor (Modo AGENT)
 
-Crear un servidor que sera monitoreado via agente on-premise.
+Crear un servidor que sera monitoreado via agente on-premise. **El descubrimiento automatico es realizado por el agente.**
 
 ```http
 POST /api/servers
-Authorization: Bearer eyJhbG...
+X-API-Key: runyx_ak_...
+X-API-Secret: runyx_sk_...
 Content-Type: application/json
 
 {
@@ -375,23 +234,43 @@ Content-Type: application/json
 }
 ```
 
-### Crear Servidor v2 (Con Auto-Discovery)
+**Ejemplo:**
+```bash
+curl -X POST "https://apidg.runyx.io/api/servers" \
+  -H "X-API-Key: runyx_ak_..." \
+  -H "X-API-Secret: runyx_sk_..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "PostgreSQL Interno",
+    "host": "192.168.1.100",
+    "port": 5432,
+    "type": "postgres",
+    "username": "usuario_dataguard",
+    "password": "contrasena-segura",
+    "environment": "PRODUCTION",
+    "managementMode": "AGENT",
+    "assignedAgentId": "13f84c6e-5448-47a4-bbdf-bd2110669a55"
+  }'
+```
 
-Crea un servidor y automaticamente descubre bases de datos, esquemas y tablas.
-
-```http
-POST /api/servers/v2
-Authorization: Bearer eyJhbG...
-Content-Type: application/json
-
+**Respuesta (modo AGENT):**
+```json
 {
-  "name": "DB Produccion",
-  "host": "db.ejemplo.com",
-  "port": 5432,
-  "type": "postgres",
-  "username": "admin",
-  "password": "contrasena",
-  "environment": "PRODUCTION"
+  "success": true,
+  "data": {
+    "server": {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "name": "PostgreSQL Interno",
+      "management_mode": "AGENT",
+      "assigned_agent_id": "13f84c6e-5448-47a4-bbdf-bd2110669a55"
+    },
+    "discovery": {
+      "success": true,
+      "mode": "AGENT",
+      "message": "Discovery task sent to agent. Task ID: task-uuid",
+      "taskId": "task-uuid"
+    }
+  }
 }
 ```
 
@@ -399,7 +278,8 @@ Content-Type: application/json
 
 ```http
 PUT /api/servers/:id
-Authorization: Bearer eyJhbG...
+X-API-Key: runyx_ak_...
+X-API-Secret: runyx_sk_...
 Content-Type: application/json
 
 {
@@ -409,11 +289,28 @@ Content-Type: application/json
 }
 ```
 
+**Ejemplo:**
+```bash
+curl -X PUT "https://apidg.runyx.io/api/servers/550e8400-e29b-41d4-a716-446655440000" \
+  -H "X-API-Key: runyx_ak_..." \
+  -H "X-API-Secret: runyx_sk_..." \
+  -H "Content-Type: application/json" \
+  -d '{"syncEnabled": true}'
+```
+
 ### Eliminar Servidor
 
 ```http
 DELETE /api/servers/:id
-Authorization: Bearer eyJhbG...
+X-API-Key: runyx_ak_...
+X-API-Secret: runyx_sk_...
+```
+
+**Ejemplo:**
+```bash
+curl -X DELETE "https://apidg.runyx.io/api/servers/550e8400-e29b-41d4-a716-446655440000" \
+  -H "X-API-Key: runyx_ak_..." \
+  -H "X-API-Secret: runyx_sk_..."
 ```
 
 ### Probar Conexion
@@ -422,7 +319,8 @@ Probar conexion a un servidor antes de crearlo.
 
 ```http
 POST /api/servers/test-connection
-Authorization: Bearer eyJhbG...
+X-API-Key: runyx_ak_...
+X-API-Secret: runyx_sk_...
 Content-Type: application/json
 
 {
@@ -440,7 +338,8 @@ Content-Type: application/json
 
 ```http
 POST /api/servers/:id/test
-Authorization: Bearer eyJhbG...
+X-API-Key: runyx_ak_...
+X-API-Secret: runyx_sk_...
 ```
 
 ### Sincronizar Bases de Datos del Servidor
@@ -449,7 +348,8 @@ Activar descubrimiento/sincronizacion de bases de datos para un servidor.
 
 ```http
 POST /api/servers/:id/sync-databases
-Authorization: Bearer eyJhbG...
+X-API-Key: runyx_ak_...
+X-API-Secret: runyx_sk_...
 ```
 
 ### Obtener Metricas del Servidor
@@ -458,7 +358,8 @@ Obtener metricas en tiempo real de un servidor.
 
 ```http
 GET /api/servers/:id/metrics
-Authorization: Bearer eyJhbG...
+X-API-Key: runyx_ak_...
+X-API-Secret: runyx_sk_...
 ```
 
 ---
@@ -469,7 +370,8 @@ Authorization: Bearer eyJhbG...
 
 ```http
 GET /api/servers/:id/databases
-Authorization: Bearer eyJhbG...
+X-API-Key: runyx_ak_...
+X-API-Secret: runyx_sk_...
 ```
 
 **Respuesta:**
@@ -497,14 +399,16 @@ Authorization: Bearer eyJhbG...
 
 ```http
 GET /api/servers/:id/databases/:dbName/schemas
-Authorization: Bearer eyJhbG...
+X-API-Key: runyx_ak_...
+X-API-Secret: runyx_sk_...
 ```
 
 ### Listar Tablas de la Base de Datos
 
 ```http
 GET /api/servers/:id/databases/:dbName/tables
-Authorization: Bearer eyJhbG...
+X-API-Key: runyx_ak_...
+X-API-Secret: runyx_sk_...
 ```
 
 **Parametros de Query:**
@@ -522,7 +426,8 @@ Gestionar permisos de base de datos para usuarios.
 
 ```http
 GET /api/permissions
-Authorization: Bearer eyJhbG...
+X-API-Key: runyx_ak_...
+X-API-Secret: runyx_sk_...
 ```
 
 **Parametros de Query:**
@@ -534,20 +439,21 @@ Authorization: Bearer eyJhbG...
 | `permissionType` | string | Filtrar por tipo de permiso |
 | `status` | string | Filtrar por estado (active, revoked) |
 | `includeExpired` | boolean | Incluir permisos expirados |
-| `consolidated` | boolean | Retornar vista consolidada |
 
 ### Obtener Detalles del Permiso
 
 ```http
 GET /api/permissions/:id
-Authorization: Bearer eyJhbG...
+X-API-Key: runyx_ak_...
+X-API-Secret: runyx_sk_...
 ```
 
 ### Otorgar Permiso
 
 ```http
 POST /api/permissions
-Authorization: Bearer eyJhbG...
+X-API-Key: runyx_ak_...
+X-API-Secret: runyx_sk_...
 Content-Type: application/json
 
 {
@@ -574,13 +480,28 @@ Content-Type: application/json
 | `ADMIN` | Acceso administrativo completo |
 | `CUSTOM` | Conjunto de permisos personalizado |
 
+**Ejemplo:**
+```bash
+curl -X POST "https://apidg.runyx.io/api/permissions" \
+  -H "X-API-Key: runyx_ak_..." \
+  -H "X-API-Secret: runyx_sk_..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "userId": "user-uuid",
+    "serverId": "server-uuid",
+    "permissionType": "READ",
+    "permissions": {"select": true}
+  }'
+```
+
 ### Otorgar Permisos Masivos
 
 Otorgar el mismo permiso a multiples usuarios.
 
 ```http
 POST /api/permissions/bulk
-Authorization: Bearer eyJhbG...
+X-API-Key: runyx_ak_...
+X-API-Secret: runyx_sk_...
 Content-Type: application/json
 
 {
@@ -599,7 +520,8 @@ Content-Type: application/json
 
 ```http
 PUT /api/permissions/:id
-Authorization: Bearer eyJhbG...
+X-API-Key: runyx_ak_...
+X-API-Secret: runyx_sk_...
 Content-Type: application/json
 
 {
@@ -617,7 +539,8 @@ Content-Type: application/json
 
 ```http
 DELETE /api/permissions/:id
-Authorization: Bearer eyJhbG...
+X-API-Key: runyx_ak_...
+X-API-Secret: runyx_sk_...
 Content-Type: application/json
 
 {
@@ -631,7 +554,8 @@ Verificar si un usuario tiene un permiso especifico.
 
 ```http
 POST /api/permissions/check
-Authorization: Bearer eyJhbG...
+X-API-Key: runyx_ak_...
+X-API-Secret: runyx_sk_...
 Content-Type: application/json
 
 {
@@ -648,7 +572,8 @@ Sincronizar permisos entre Dataguard y el servidor de base de datos real.
 
 ```http
 POST /api/permissions/sync
-Authorization: Bearer eyJhbG...
+X-API-Key: runyx_ak_...
+X-API-Secret: runyx_sk_...
 Content-Type: application/json
 
 {
@@ -667,20 +592,17 @@ Content-Type: application/json
 
 ```http
 GET /api/permissions/stats
-Authorization: Bearer eyJhbG...
+X-API-Key: runyx_ak_...
+X-API-Secret: runyx_sk_...
 ```
 
 ### Obtener Permisos por Expirar
 
 ```http
-GET /api/permissions/expiring
-Authorization: Bearer eyJhbG...
+GET /api/permissions/expiring?days=7
+X-API-Key: runyx_ak_...
+X-API-Secret: runyx_sk_...
 ```
-
-**Parametros de Query:**
-| Parametro | Tipo | Por defecto | Descripcion |
-|-----------|------|-------------|-------------|
-| `days` | number | 7 | Dias hasta la expiracion (1-365) |
 
 ### Obtener Discrepancias de Permisos
 
@@ -688,7 +610,8 @@ Encontrar diferencias entre permisos de Dataguard y permisos reales de la base d
 
 ```http
 GET /api/permissions/servers/:serverId/discrepancies
-Authorization: Bearer eyJhbG...
+X-API-Key: runyx_ak_...
+X-API-Secret: runyx_sk_...
 ```
 
 ---
@@ -701,7 +624,8 @@ Gestionar cuentas/usuarios de servicio en servidores de bases de datos.
 
 ```http
 GET /api/service-users
-Authorization: Bearer eyJhbG...
+X-API-Key: runyx_ak_...
+X-API-Secret: runyx_sk_...
 ```
 
 **Parametros de Query:**
@@ -712,13 +636,13 @@ Authorization: Bearer eyJhbG...
 | `status` | string | Filtrar por estado |
 | `username` | string | Filtrar por nombre de usuario |
 | `needsRotation` | boolean | Filtrar usuarios que necesitan rotacion de contrasena |
-| `expiringDays` | number | Filtrar por dias hasta que expire la contrasena |
 
 ### Obtener Detalles del Usuario de Servicio
 
 ```http
 GET /api/service-users/:id
-Authorization: Bearer eyJhbG...
+X-API-Key: runyx_ak_...
+X-API-Secret: runyx_sk_...
 ```
 
 ### Crear Usuario de Servicio
@@ -727,7 +651,8 @@ Crear un nuevo usuario de base de datos en un servidor.
 
 ```http
 POST /api/service-users
-Authorization: Bearer eyJhbG...
+X-API-Key: runyx_ak_...
+X-API-Secret: runyx_sk_...
 Content-Type: application/json
 
 {
@@ -752,39 +677,34 @@ Content-Type: application/json
 | `DROP` | Eliminar tablas/objetos |
 | `CONNECT` | Conectar a la base de datos |
 | `EXECUTE` | Ejecutar funciones/procedimientos |
-| `REFERENCES` | Crear claves foraneas |
-| `TRIGGER` | Crear triggers |
 | `ALL` | Todos los privilegios |
 
-### Crear Usuario de Servicio v2 (Con Propagacion)
-
-Crea un usuario de servicio y lo propaga a todas las bases de datos relevantes.
-
-```http
-POST /api/service-users-v2
-Authorization: Bearer eyJhbG...
-Content-Type: application/json
-
-{
-  "databaseId": "database-uuid",
-  "username": "app_service",
-  "privileges": ["SELECT", "INSERT", "UPDATE"],
-  "description": "Cuenta de servicio de la aplicacion",
-  "rotationIntervalDays": 30
-}
+**Ejemplo:**
+```bash
+curl -X POST "https://apidg.runyx.io/api/service-users" \
+  -H "X-API-Key: runyx_ak_..." \
+  -H "X-API-Secret: runyx_sk_..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "databaseId": "database-uuid",
+    "username": "app_service",
+    "privileges": ["SELECT", "INSERT", "UPDATE"],
+    "description": "Cuenta de servicio de la aplicacion",
+    "rotationIntervalDays": 30
+  }'
 ```
 
 ### Actualizar Usuario de Servicio
 
 ```http
 PUT /api/service-users/:id
-Authorization: Bearer eyJhbG...
+X-API-Key: runyx_ak_...
+X-API-Secret: runyx_sk_...
 Content-Type: application/json
 
 {
   "privileges": ["SELECT", "INSERT", "UPDATE", "DELETE"],
   "description": "Descripcion actualizada",
-  "expiresAt": "2026-06-30T23:59:59Z",
   "rotationIntervalDays": 60
 }
 ```
@@ -795,7 +715,8 @@ Elimina el usuario del servidor de base de datos.
 
 ```http
 DELETE /api/service-users/:id
-Authorization: Bearer eyJhbG...
+X-API-Key: runyx_ak_...
+X-API-Secret: runyx_sk_...
 ```
 
 ### Rotar Contrasena
@@ -804,24 +725,25 @@ Cambiar la contrasena de un usuario de servicio.
 
 ```http
 POST /api/service-users/:id/rotate-password
-Authorization: Bearer eyJhbG...
-Content-Type: application/json
-
-{
-  "newPassword": "NuevaContrasenaSegura456!",
-  "generatePassword": false
-}
-```
-
-O generar una contrasena aleatoria:
-
-```http
-POST /api/service-users/:id/rotate-password
-Authorization: Bearer eyJhbG...
+X-API-Key: runyx_ak_...
+X-API-Secret: runyx_sk_...
 Content-Type: application/json
 
 {
   "generatePassword": true
+}
+```
+
+O especificar una nueva contrasena:
+
+```http
+POST /api/service-users/:id/rotate-password
+X-API-Key: runyx_ak_...
+X-API-Secret: runyx_sk_...
+Content-Type: application/json
+
+{
+  "newPassword": "NuevaContrasenaSegura456!"
 }
 ```
 
@@ -831,7 +753,8 @@ Rotar contrasenas de multiples usuarios de servicio.
 
 ```http
 POST /api/service-users/bulk-rotate
-Authorization: Bearer eyJhbG...
+X-API-Key: runyx_ak_...
+X-API-Secret: runyx_sk_...
 Content-Type: application/json
 
 {
@@ -840,20 +763,12 @@ Content-Type: application/json
 }
 ```
 
-### Auto-Rotar Contrasenas
-
-Rotar automaticamente contrasenas de usuarios que han excedido su intervalo de rotacion.
-
-```http
-POST /api/service-users/auto-rotate
-Authorization: Bearer eyJhbG...
-```
-
 ### Probar Conexion del Usuario de Servicio
 
 ```http
 POST /api/service-users/:id/test-connection
-Authorization: Bearer eyJhbG...
+X-API-Key: runyx_ak_...
+X-API-Secret: runyx_sk_...
 ```
 
 ### Clonar Usuario de Servicio
@@ -862,7 +777,8 @@ Clonar un usuario de servicio existente a otra base de datos.
 
 ```http
 POST /api/service-users/:id/clone
-Authorization: Bearer eyJhbG...
+X-API-Key: runyx_ak_...
+X-API-Secret: runyx_sk_...
 Content-Type: application/json
 
 {
@@ -876,27 +792,17 @@ Content-Type: application/json
 
 ```http
 GET /api/service-users/stats
-Authorization: Bearer eyJhbG...
+X-API-Key: runyx_ak_...
+X-API-Secret: runyx_sk_...
 ```
 
 ### Obtener Usuarios que Necesitan Rotacion
 
 ```http
 GET /api/service-users/needing-rotation
-Authorization: Bearer eyJhbG...
+X-API-Key: runyx_ak_...
+X-API-Secret: runyx_sk_...
 ```
-
-### Obtener Usuarios con Contrasenas por Expirar
-
-```http
-GET /api/service-users/expiring
-Authorization: Bearer eyJhbG...
-```
-
-**Parametros de Query:**
-| Parametro | Tipo | Por defecto | Descripcion |
-|-----------|------|-------------|-------------|
-| `days` | number | 7 | Dias hasta la expiracion (1-365) |
 
 ---
 
@@ -908,7 +814,8 @@ Gestionar agentes on-premise para monitorear bases de datos internas.
 
 ```http
 GET /api/agents
-Authorization: Bearer eyJhbG...
+X-API-Key: runyx_ak_...
+X-API-Secret: runyx_sk_...
 ```
 
 **Parametros de Query:**
@@ -922,23 +829,22 @@ Authorization: Bearer eyJhbG...
 
 ```http
 GET /api/agents/:agentId
-Authorization: Bearer eyJhbG...
+X-API-Key: runyx_ak_...
+X-API-Secret: runyx_sk_...
 ```
 
 ### Crear Agente
 
 ```http
 POST /api/agents
-Authorization: Bearer eyJhbG...
+X-API-Key: runyx_ak_...
+X-API-Secret: runyx_sk_...
 Content-Type: application/json
 
 {
   "name": "Agente-DC1",
   "description": "Agente para Datacenter 1",
-  "capabilities": ["postgres", "mysql"],
-  "config": {
-    "maxConnections": 10
-  }
+  "capabilities": ["postgres", "mysql"]
 }
 ```
 
@@ -947,7 +853,7 @@ Content-Type: application/json
 {
   "success": true,
   "data": {
-    "id": "agent-uuid",
+    "id": "13f84c6e-5448-47a4-bbdf-bd2110669a55",
     "agentId": "0ad06bb9-1f87-4398-9810-f1293974df23",
     "name": "Agente-DC1",
     "apiKey": "agent-api-key",
@@ -962,7 +868,8 @@ Content-Type: application/json
 
 ```http
 PATCH /api/agents/:agentId
-Authorization: Bearer eyJhbG...
+X-API-Key: runyx_ak_...
+X-API-Secret: runyx_sk_...
 Content-Type: application/json
 
 {
@@ -975,36 +882,32 @@ Content-Type: application/json
 
 ```http
 DELETE /api/agents/:agentId
-Authorization: Bearer eyJhbG...
+X-API-Key: runyx_ak_...
+X-API-Secret: runyx_sk_...
 ```
 
 ### Rotar Clave del Agente
 
 ```http
 POST /api/agents/:agentId/rotate-key
-Authorization: Bearer eyJhbG...
+X-API-Key: runyx_ak_...
+X-API-Secret: runyx_sk_...
 ```
 
 ### Obtener Tareas del Agente
 
 ```http
 GET /api/agents/:agentId/tasks
-Authorization: Bearer eyJhbG...
+X-API-Key: runyx_ak_...
+X-API-Secret: runyx_sk_...
 ```
-
-**Parametros de Query:**
-| Parametro | Tipo | Descripcion |
-|-----------|------|-------------|
-| `status` | string | Filtrar por estado |
-| `taskType` | string | Filtrar por tipo de tarea |
-| `limit` | number | Resultados por pagina |
-| `offset` | number | Offset de paginacion |
 
 ### Crear Tarea del Agente
 
 ```http
 POST /api/agents/:agentId/tasks
-Authorization: Bearer eyJhbG...
+X-API-Key: runyx_ak_...
+X-API-Secret: runyx_sk_...
 Content-Type: application/json
 
 {
@@ -1033,41 +936,32 @@ Content-Type: application/json
 
 ```http
 GET /api/agents/tasks/:taskId
-Authorization: Bearer eyJhbG...
+X-API-Key: runyx_ak_...
+X-API-Secret: runyx_sk_...
 ```
 
 ### Cancelar Tarea
 
 ```http
 POST /api/agents/:agentId/tasks/:taskId/cancel
-Authorization: Bearer eyJhbG...
-```
-
-### Reintentar Tarea Fallida
-
-```http
-POST /api/agents/:agentId/tasks/:taskId/retry
-Authorization: Bearer eyJhbG...
+X-API-Key: runyx_ak_...
+X-API-Secret: runyx_sk_...
 ```
 
 ### Obtener Metricas del Agente
 
 ```http
 GET /api/agents/:agentId/metrics
-Authorization: Bearer eyJhbG...
+X-API-Key: runyx_ak_...
+X-API-Secret: runyx_sk_...
 ```
-
-**Parametros de Query:**
-| Parametro | Tipo | Descripcion |
-|-----------|------|-------------|
-| `startDate` | ISO8601 | Inicio del rango de fechas |
-| `endDate` | ISO8601 | Fin del rango de fechas |
 
 ### Obtener Vision General de Estadisticas de Agentes
 
 ```http
 GET /api/agents/stats/overview
-Authorization: Bearer eyJhbG...
+X-API-Key: runyx_ak_...
+X-API-Secret: runyx_sk_...
 ```
 
 ---
@@ -1080,7 +974,8 @@ Monitorear y auditar consultas de bases de datos.
 
 ```http
 GET /api/query-audit/servers/:serverId/logs
-Authorization: Bearer eyJhbG...
+X-API-Key: runyx_ak_...
+X-API-Secret: runyx_sk_...
 ```
 
 **Parametros de Query:**
@@ -1098,15 +993,15 @@ Authorization: Bearer eyJhbG...
 ### Exportar Logs de Consultas
 
 ```http
-GET /api/query-audit/servers/:serverId/export
-Authorization: Bearer eyJhbG...
+GET /api/query-audit/servers/:serverId/export?format=csv
+X-API-Key: runyx_ak_...
+X-API-Secret: runyx_sk_...
 ```
 
 **Parametros de Query:**
 | Parametro | Tipo | Descripcion |
 |-----------|------|-------------|
 | `format` | string | Formato de exportacion: `csv` o `json` |
-| Filtros adicionales | | Mismos de Obtener Logs de Consultas |
 
 ### Recolectar Consultas
 
@@ -1114,7 +1009,8 @@ Activar recoleccion manual de consultas de un servidor.
 
 ```http
 POST /api/query-audit/servers/:serverId/collect
-Authorization: Bearer eyJhbG...
+X-API-Key: runyx_ak_...
+X-API-Secret: runyx_sk_...
 Content-Type: application/json
 
 {
@@ -1128,21 +1024,24 @@ Content-Type: application/json
 
 ```http
 GET /api/query-audit/servers/:serverId/availability
-Authorization: Bearer eyJhbG...
+X-API-Key: runyx_ak_...
+X-API-Secret: runyx_sk_...
 ```
 
 ### Habilitar Auditoria de Consultas
 
 ```http
 POST /api/query-audit/servers/:serverId/enable
-Authorization: Bearer eyJhbG...
+X-API-Key: runyx_ak_...
+X-API-Secret: runyx_sk_...
 ```
 
 ### Deshabilitar Auditoria de Consultas
 
 ```http
 POST /api/query-audit/servers/:serverId/disable
-Authorization: Bearer eyJhbG...
+X-API-Key: runyx_ak_...
+X-API-Secret: runyx_sk_...
 ```
 
 ---
@@ -1155,28 +1054,24 @@ Gestionar usuarios de la plataforma dentro de su tenant.
 
 ```http
 GET /api/users
-Authorization: Bearer eyJhbG...
-```
-
-### Obtener Perfil del Usuario Actual
-
-```http
-GET /api/users/profile
-Authorization: Bearer eyJhbG...
+X-API-Key: runyx_ak_...
+X-API-Secret: runyx_sk_...
 ```
 
 ### Obtener Detalles del Usuario
 
 ```http
 GET /api/users/:id
-Authorization: Bearer eyJhbG...
+X-API-Key: runyx_ak_...
+X-API-Secret: runyx_sk_...
 ```
 
 ### Crear Usuario
 
 ```http
 POST /api/users
-Authorization: Bearer eyJhbG...
+X-API-Key: runyx_ak_...
+X-API-Secret: runyx_sk_...
 Content-Type: application/json
 
 {
@@ -1200,7 +1095,8 @@ Content-Type: application/json
 
 ```http
 PUT /api/users/:id
-Authorization: Bearer eyJhbG...
+X-API-Key: runyx_ak_...
+X-API-Secret: runyx_sk_...
 Content-Type: application/json
 
 {
@@ -1214,31 +1110,16 @@ Content-Type: application/json
 
 ```http
 DELETE /api/users/:id
-Authorization: Bearer eyJhbG...
+X-API-Key: runyx_ak_...
+X-API-Secret: runyx_sk_...
 ```
 
-### Cambiar Contrasena
-
-Cambiar su propia contrasena.
-
-```http
-POST /api/users/change-password
-Authorization: Bearer eyJhbG...
-Content-Type: application/json
-
-{
-  "currentPassword": "ContrasenaAntigua123!",
-  "newPassword": "ContrasenaNueva456!"
-}
-```
-
-### Restablecer Contrasena de Usuario (Admin)
-
-Restablecer la contrasena de otro usuario.
+### Restablecer Contrasena de Usuario
 
 ```http
 POST /api/users/:id/reset-password
-Authorization: Bearer eyJhbG...
+X-API-Key: runyx_ak_...
+X-API-Secret: runyx_sk_...
 Content-Type: application/json
 
 {
@@ -1250,30 +1131,8 @@ Content-Type: application/json
 
 ```http
 GET /api/users/stats
-Authorization: Bearer eyJhbG...
-```
-
-### Listar Sesiones Activas
-
-```http
-GET /api/users/sessions
-Authorization: Bearer eyJhbG...
-```
-
-### Revocar Sesion
-
-```http
-DELETE /api/users/sessions/:sessionId
-Authorization: Bearer eyJhbG...
-```
-
-### Revocar Todas las Sesiones
-
-Revocar todas las sesiones excepto la actual.
-
-```http
-DELETE /api/users/sessions
-Authorization: Bearer eyJhbG...
+X-API-Key: runyx_ak_...
+X-API-Secret: runyx_sk_...
 ```
 
 ---
@@ -1304,32 +1163,6 @@ GET /health/live
 
 ```http
 GET /health/ready
-```
-
-### Salud Detallada (Solo Admin)
-
-```http
-GET /health/detailed
-Authorization: Bearer eyJhbG...
-```
-
-**Respuesta:**
-```json
-{
-  "status": "healthy",
-  "uptime": 86400,
-  "database": {
-    "status": "connected",
-    "latency": 5
-  },
-  "redis": {
-    "status": "connected"
-  },
-  "memory": {
-    "used": 512,
-    "total": 2048
-  }
-}
 ```
 
 ---
@@ -1388,8 +1221,6 @@ La API implementa limites de tasa para garantizar uso justo:
 | Tipo de Endpoint | Limite | Ventana |
 |------------------|--------|---------|
 | API General | 300 solicitudes | 15 minutos |
-| Autenticacion | 10 solicitudes | 1 minuto |
-| Verificacion 2FA | 5 intentos | 15 minutos |
 | Clave de API (Personalizada) | Configurable | 15 minutos |
 
 Cuando se excede el limite de tasa, la API retorna:
@@ -1430,28 +1261,6 @@ GET /api/servers?limit=20&offset=40
   }
 }
 ```
-
----
-
-## Webhooks
-
-Configure webhooks para recibir notificaciones en tiempo real sobre eventos.
-
-### Eventos de Webhook
-
-| Evento | Descripcion |
-|--------|-------------|
-| `server.created` | Nuevo servidor agregado |
-| `server.deleted` | Servidor eliminado |
-| `permission.granted` | Permiso otorgado |
-| `permission.revoked` | Permiso revocado |
-| `permission.expiring` | Permiso por expirar |
-| `user.created` | Nuevo usuario creado |
-| `service_user.created` | Usuario de servicio creado |
-| `service_user.password_rotated` | Contrasena rotada |
-| `agent.connected` | Agente se conecto |
-| `agent.disconnected` | Agente se desconecto |
-| `query_audit.anomaly` | Consulta inusual detectada |
 
 ---
 
@@ -1543,42 +1352,6 @@ const client = new DataguardClient(
 client.listarServidores().then(servidores => console.log(servidores));
 ```
 
-### cURL
-
-```bash
-# Listar todos los servidores
-curl -X GET "https://apidg.runyx.io/api/servers" \
-  -H "X-API-Key: runyx_ak_..." \
-  -H "X-API-Secret: runyx_sk_..."
-
-# Crear un servidor
-curl -X POST "https://apidg.runyx.io/api/servers" \
-  -H "X-API-Key: runyx_ak_..." \
-  -H "X-API-Secret: runyx_sk_..." \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "DB Produccion",
-    "host": "db.ejemplo.com",
-    "port": 5432,
-    "type": "postgres",
-    "username": "admin",
-    "password": "contrasena",
-    "environment": "PRODUCTION"
-  }'
-
-# Otorgar permiso
-curl -X POST "https://apidg.runyx.io/api/permissions" \
-  -H "X-API-Key: runyx_ak_..." \
-  -H "X-API-Secret: runyx_sk_..." \
-  -H "Content-Type: application/json" \
-  -d '{
-    "userId": "user-uuid",
-    "serverId": "server-uuid",
-    "permissionType": "READ",
-    "permissions": {"select": true}
-  }'
-```
-
 ---
 
 ## Soporte
@@ -1586,7 +1359,6 @@ curl -X POST "https://apidg.runyx.io/api/permissions" \
 - **Documentacion:** https://docs.runyx.io
 - **Estado de la API:** https://status.runyx.io
 - **Correo de Soporte:** support@runyx.io
-- **GitHub Issues:** https://github.com/runyxio/dataguard/issues
 
 ---
 
