@@ -139,9 +139,28 @@ Content-Type: application/json
   "database": "myapp",
   "environment": "PRODUCTION",
   "useSsl": true,
-  "syncEnabled": true
+  "syncEnabled": true,
+  "credentialSource": "inline"
 }
 ```
+
+**Request Body Parameters:**
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `name` | string | Yes | Server display name |
+| `host` | string | Yes | Database host/IP |
+| `port` | number | Yes | Database port |
+| `type` | string | Yes | Database type (see table below) |
+| `username` | string | Conditional | Required if `credentialSource` is `inline` |
+| `password` | string | Conditional | Required if `credentialSource` is `inline` |
+| `database` | string | No | Default database name |
+| `environment` | string | No | Environment (DEV, QA, PRODUCTION) |
+| `useSsl` | boolean | No | Enable SSL/TLS connection |
+| `syncEnabled` | boolean | No | Enable automatic sync |
+| `managementMode` | string | No | `CLOUD` (default) or `AGENT` |
+| `assignedAgentId` | UUID | Conditional | Required if `managementMode` is `AGENT` |
+| `credentialSource` | string | No | `inline` (default) or `secrets_manager` |
+| `secretsConfig` | object | Conditional | Required if `credentialSource` is `secrets_manager` |
 
 **Database Types:**
 | Type | Description |
@@ -192,7 +211,9 @@ curl -X POST "https://apidg.runyx.io/api/servers" \
       "type": "postgres",
       "status": "active",
       "environment": "PRODUCTION",
-      "management_mode": "CLOUD"
+      "management_mode": "CLOUD",
+      "credential_source": "inline",
+      "secrets_config": null
     },
     "discovery": {
       "success": true,
@@ -273,6 +294,177 @@ curl -X POST "https://apidg.runyx.io/api/servers" \
   }
 }
 ```
+
+### Create Server with Secrets Manager
+
+Instead of storing credentials directly, you can configure the server to fetch credentials from an external secrets manager (AWS Secrets Manager, Azure Key Vault, or HashiCorp Vault).
+
+#### Using AWS Secrets Manager (AGENT Mode)
+
+When using AGENT mode, the agent uses the IAM role attached to the EC2/ECS instance to access Secrets Manager - no Role ARN needed.
+
+```http
+POST /api/servers
+X-API-Key: runyx_ak_...
+X-API-Secret: runyx_sk_...
+Content-Type: application/json
+
+{
+  "name": "Production PostgreSQL",
+  "host": "192.168.1.100",
+  "port": 5432,
+  "type": "postgres",
+  "database": "myapp",
+  "environment": "PRODUCTION",
+  "managementMode": "AGENT",
+  "assignedAgentId": "agent-uuid",
+  "credentialSource": "secrets_manager",
+  "secretsConfig": {
+    "provider": "aws",
+    "secretName": "prod/database/postgres-credentials",
+    "aws": {
+      "region": "us-east-1"
+    }
+  }
+}
+```
+
+#### Using AWS Secrets Manager (CLOUD Mode)
+
+When using CLOUD mode, provide a Role ARN for cross-account access.
+
+```http
+POST /api/servers
+X-API-Key: runyx_ak_...
+X-API-Secret: runyx_sk_...
+Content-Type: application/json
+
+{
+  "name": "Production PostgreSQL",
+  "host": "db.example.com",
+  "port": 5432,
+  "type": "postgres",
+  "database": "myapp",
+  "environment": "PRODUCTION",
+  "managementMode": "CLOUD",
+  "credentialSource": "secrets_manager",
+  "secretsConfig": {
+    "provider": "aws",
+    "secretName": "prod/database/postgres-credentials",
+    "aws": {
+      "region": "us-east-1",
+      "roleArn": "arn:aws:iam::123456789012:role/DataguardSecretsAccess"
+    }
+  }
+}
+```
+
+#### Using Azure Key Vault
+
+```http
+POST /api/servers
+X-API-Key: runyx_ak_...
+X-API-Secret: runyx_sk_...
+Content-Type: application/json
+
+{
+  "name": "Production PostgreSQL",
+  "host": "db.example.com",
+  "port": 5432,
+  "type": "postgres",
+  "database": "myapp",
+  "environment": "PRODUCTION",
+  "managementMode": "AGENT",
+  "assignedAgentId": "agent-uuid",
+  "credentialSource": "secrets_manager",
+  "secretsConfig": {
+    "provider": "azure",
+    "secretName": "postgres-credentials",
+    "azure": {
+      "vaultUrl": "https://myvault.vault.azure.net"
+    }
+  }
+}
+```
+
+#### Using HashiCorp Vault
+
+```http
+POST /api/servers
+X-API-Key: runyx_ak_...
+X-API-Secret: runyx_sk_...
+Content-Type: application/json
+
+{
+  "name": "Production PostgreSQL",
+  "host": "db.example.com",
+  "port": 5432,
+  "type": "postgres",
+  "database": "myapp",
+  "environment": "PRODUCTION",
+  "managementMode": "AGENT",
+  "assignedAgentId": "agent-uuid",
+  "credentialSource": "secrets_manager",
+  "secretsConfig": {
+    "provider": "vault",
+    "secretName": "database/creds/postgres",
+    "vault": {
+      "address": "https://vault.example.com:8200",
+      "namespace": "admin/production"
+    }
+  }
+}
+```
+
+**Credential Source Values:**
+| Value | Description |
+|-------|-------------|
+| `inline` | Username and password stored directly (default) |
+| `secrets_manager` | Credentials fetched from external secrets manager |
+
+**Secrets Providers:**
+| Provider | Description |
+|----------|-------------|
+| `aws` | AWS Secrets Manager |
+| `azure` | Azure Key Vault |
+| `vault` | HashiCorp Vault |
+
+**AWS Regions:**
+| Region | Location |
+|--------|----------|
+| `us-east-1` | US East (N. Virginia) |
+| `us-east-2` | US East (Ohio) |
+| `us-west-1` | US West (N. California) |
+| `us-west-2` | US West (Oregon) |
+| `eu-west-1` | Europe (Ireland) |
+| `eu-west-2` | Europe (London) |
+| `eu-central-1` | Europe (Frankfurt) |
+| `ap-southeast-1` | Asia Pacific (Singapore) |
+| `ap-southeast-2` | Asia Pacific (Sydney) |
+| `ap-northeast-1` | Asia Pacific (Tokyo) |
+| `sa-east-1` | South America (São Paulo) |
+
+**Secret Format:**
+
+The secret must contain a JSON object with `username` and `password` keys:
+
+```json
+{
+  "username": "db_user",
+  "password": "secure_password"
+}
+```
+
+**Authentication by Mode:**
+
+| Mode | Provider | Authentication Method |
+|------|----------|----------------------|
+| AGENT | AWS | EC2/ECS IAM Instance Role |
+| AGENT | Azure | Managed Identity |
+| AGENT | Vault | Local token or AppRole |
+| CLOUD | AWS | STS AssumeRole (cross-account) |
+| CLOUD | Azure | Service Principal |
+| CLOUD | Vault | Backend Vault token |
 
 ### Update Server
 
@@ -1362,4 +1554,4 @@ client.listServers().then(servers => console.log(servers));
 
 ---
 
-*Last updated: December 2025*
+*Last updated: January 2026*

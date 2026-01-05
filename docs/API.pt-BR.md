@@ -139,9 +139,28 @@ Content-Type: application/json
   "database": "meuapp",
   "environment": "PRODUCTION",
   "useSsl": true,
-  "syncEnabled": true
+  "syncEnabled": true,
+  "credentialSource": "inline"
 }
 ```
+
+**Parametros do Corpo da Requisicao:**
+| Parametro | Tipo | Obrigatorio | Descricao |
+|-----------|------|-------------|-----------|
+| `name` | string | Sim | Nome de exibicao do servidor |
+| `host` | string | Sim | Host/IP do banco de dados |
+| `port` | number | Sim | Porta do banco de dados |
+| `type` | string | Sim | Tipo de banco de dados (ver tabela abaixo) |
+| `username` | string | Condicional | Obrigatorio se `credentialSource` for `inline` |
+| `password` | string | Condicional | Obrigatorio se `credentialSource` for `inline` |
+| `database` | string | Nao | Nome do banco de dados padrao |
+| `environment` | string | Nao | Ambiente (DEV, QA, PRODUCTION) |
+| `useSsl` | boolean | Nao | Habilitar conexao SSL/TLS |
+| `syncEnabled` | boolean | Nao | Habilitar sincronizacao automatica |
+| `managementMode` | string | Nao | `CLOUD` (padrao) ou `AGENT` |
+| `assignedAgentId` | UUID | Condicional | Obrigatorio se `managementMode` for `AGENT` |
+| `credentialSource` | string | Nao | `inline` (padrao) ou `secrets_manager` |
+| `secretsConfig` | object | Condicional | Obrigatorio se `credentialSource` for `secrets_manager` |
 
 **Tipos de Banco de Dados:**
 | Tipo | Descricao |
@@ -273,6 +292,151 @@ curl -X POST "https://apidg.runyx.io/api/servers" \
   }
 }
 ```
+
+### Criar Servidor com Secrets Manager
+
+Em vez de armazenar credenciais diretamente, voce pode configurar o servidor para buscar credenciais de um gerenciador de segredos externo (AWS Secrets Manager, Azure Key Vault ou HashiCorp Vault).
+
+#### Usando AWS Secrets Manager (Modo AGENT)
+
+Quando usando modo AGENT, o agente usa o IAM role anexado a instancia EC2/ECS para acessar o Secrets Manager - nao e necessario Role ARN.
+
+```http
+POST /api/servers
+X-API-Key: runyx_ak_...
+X-API-Secret: runyx_sk_...
+Content-Type: application/json
+
+{
+  "name": "PostgreSQL Producao",
+  "host": "192.168.1.100",
+  "port": 5432,
+  "type": "postgres",
+  "database": "meuapp",
+  "environment": "PRODUCTION",
+  "managementMode": "AGENT",
+  "assignedAgentId": "agent-uuid",
+  "credentialSource": "secrets_manager",
+  "secretsConfig": {
+    "provider": "aws",
+    "secretName": "prod/database/postgres-credentials",
+    "aws": {
+      "region": "us-east-1"
+    }
+  }
+}
+```
+
+#### Usando AWS Secrets Manager (Modo CLOUD)
+
+Quando usando modo CLOUD, forneca um Role ARN para acesso cross-account.
+
+```http
+POST /api/servers
+Content-Type: application/json
+
+{
+  "name": "PostgreSQL Producao",
+  "host": "db.exemplo.com",
+  "port": 5432,
+  "type": "postgres",
+  "environment": "PRODUCTION",
+  "managementMode": "CLOUD",
+  "credentialSource": "secrets_manager",
+  "secretsConfig": {
+    "provider": "aws",
+    "secretName": "prod/database/postgres-credentials",
+    "aws": {
+      "region": "us-east-1",
+      "roleArn": "arn:aws:iam::123456789012:role/DataguardSecretsAccess"
+    }
+  }
+}
+```
+
+#### Usando Azure Key Vault
+
+```http
+POST /api/servers
+Content-Type: application/json
+
+{
+  "name": "PostgreSQL Producao",
+  "host": "db.exemplo.com",
+  "port": 5432,
+  "type": "postgres",
+  "managementMode": "AGENT",
+  "assignedAgentId": "agent-uuid",
+  "credentialSource": "secrets_manager",
+  "secretsConfig": {
+    "provider": "azure",
+    "secretName": "postgres-credentials",
+    "azure": {
+      "vaultUrl": "https://meuvault.vault.azure.net"
+    }
+  }
+}
+```
+
+#### Usando HashiCorp Vault
+
+```http
+POST /api/servers
+Content-Type: application/json
+
+{
+  "name": "PostgreSQL Producao",
+  "host": "db.exemplo.com",
+  "port": 5432,
+  "type": "postgres",
+  "managementMode": "AGENT",
+  "assignedAgentId": "agent-uuid",
+  "credentialSource": "secrets_manager",
+  "secretsConfig": {
+    "provider": "vault",
+    "secretName": "database/creds/postgres",
+    "vault": {
+      "address": "https://vault.exemplo.com:8200",
+      "namespace": "admin/production"
+    }
+  }
+}
+```
+
+**Valores de Credential Source:**
+| Valor | Descricao |
+|-------|-----------|
+| `inline` | Usuario e senha armazenados diretamente (padrao) |
+| `secrets_manager` | Credenciais buscadas do gerenciador de segredos externo |
+
+**Provedores de Secrets:**
+| Provedor | Descricao |
+|----------|-----------|
+| `aws` | AWS Secrets Manager |
+| `azure` | Azure Key Vault |
+| `vault` | HashiCorp Vault |
+
+**Formato do Secret:**
+
+O secret deve conter um objeto JSON com as chaves `username` e `password`:
+
+```json
+{
+  "username": "usuario_db",
+  "password": "senha_segura"
+}
+```
+
+**Autenticacao por Modo:**
+
+| Modo | Provedor | Metodo de Autenticacao |
+|------|----------|------------------------|
+| AGENT | AWS | IAM Instance Role da EC2/ECS |
+| AGENT | Azure | Managed Identity |
+| AGENT | Vault | Token local ou AppRole |
+| CLOUD | AWS | STS AssumeRole (cross-account) |
+| CLOUD | Azure | Service Principal |
+| CLOUD | Vault | Token Vault do backend |
 
 ### Atualizar Servidor
 
