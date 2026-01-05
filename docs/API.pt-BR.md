@@ -329,10 +329,45 @@ Content-Type: application/json
 
 #### Usando AWS Secrets Manager (Modo CLOUD)
 
-Quando usando modo CLOUD, forneca um Role ARN para acesso cross-account.
+Quando usando modo CLOUD, voce tem duas opcoes:
+
+**Opcao 1: Usando uma Conta Cloud Registrada (Recomendado)**
+
+Se voce ja registrou contas AWS na secao Cloud Database (`/cloud-database`), pode referencia-las por `cloudAccountId`. O sistema usara as credenciais armazenadas para acessar o Secrets Manager.
 
 ```http
 POST /api/servers
+X-API-Key: runyx_ak_...
+X-API-Secret: runyx_sk_...
+Content-Type: application/json
+
+{
+  "name": "PostgreSQL Producao",
+  "host": "db.exemplo.com",
+  "port": 5432,
+  "type": "postgres",
+  "environment": "PRODUCTION",
+  "managementMode": "CLOUD",
+  "credentialSource": "secrets_manager",
+  "secretsConfig": {
+    "provider": "aws",
+    "secretName": "prod/database/postgres-credentials",
+    "cloudAccountId": "aws-1731234567890",
+    "aws": {
+      "region": "us-east-1"
+    }
+  }
+}
+```
+
+**Opcao 2: Usando Role ARN (Acesso Cross-Account)**
+
+Se voce nao tem uma conta cloud registrada, forneca um Role ARN para acesso cross-account.
+
+```http
+POST /api/servers
+X-API-Key: runyx_ak_...
+X-API-Secret: runyx_sk_...
 Content-Type: application/json
 
 {
@@ -354,10 +389,12 @@ Content-Type: application/json
 }
 ```
 
-#### Usando Azure Key Vault
+#### Usando Azure Key Vault (Modo AGENT)
 
 ```http
 POST /api/servers
+X-API-Key: runyx_ak_...
+X-API-Secret: runyx_sk_...
 Content-Type: application/json
 
 {
@@ -373,6 +410,62 @@ Content-Type: application/json
     "secretName": "postgres-credentials",
     "azure": {
       "vaultUrl": "https://meuvault.vault.azure.net"
+    }
+  }
+}
+```
+
+#### Usando Azure Key Vault (Modo CLOUD)
+
+**Opcao 1: Usando uma Conta Cloud Registrada (Recomendado)**
+
+```http
+POST /api/servers
+X-API-Key: runyx_ak_...
+X-API-Secret: runyx_sk_...
+Content-Type: application/json
+
+{
+  "name": "PostgreSQL Producao",
+  "host": "db.exemplo.com",
+  "port": 5432,
+  "type": "postgres",
+  "environment": "PRODUCTION",
+  "managementMode": "CLOUD",
+  "credentialSource": "secrets_manager",
+  "secretsConfig": {
+    "provider": "azure",
+    "secretName": "postgres-credentials",
+    "cloudAccountId": "azure-1731234567890",
+    "azure": {
+      "vaultUrl": "https://meuvault.vault.azure.net"
+    }
+  }
+}
+```
+
+**Opcao 2: Usando Tenant ID (Service Principal)**
+
+```http
+POST /api/servers
+X-API-Key: runyx_ak_...
+X-API-Secret: runyx_sk_...
+Content-Type: application/json
+
+{
+  "name": "PostgreSQL Producao",
+  "host": "db.exemplo.com",
+  "port": 5432,
+  "type": "postgres",
+  "environment": "PRODUCTION",
+  "managementMode": "CLOUD",
+  "credentialSource": "secrets_manager",
+  "secretsConfig": {
+    "provider": "azure",
+    "secretName": "postgres-credentials",
+    "azure": {
+      "vaultUrl": "https://meuvault.vault.azure.net",
+      "tenantId": "00000000-0000-0000-0000-000000000000"
     }
   }
 }
@@ -416,6 +509,17 @@ Content-Type: application/json
 | `azure` | Azure Key Vault |
 | `vault` | HashiCorp Vault |
 
+**Campos do SecretsConfig:**
+
+| Campo | Tipo | Obrigatorio | Descricao |
+|-------|------|-------------|-----------|
+| `provider` | string | Sim | Provedor de secrets: `aws`, `azure` ou `vault` |
+| `secretName` | string | Sim | Nome do secret a ser buscado |
+| `cloudAccountId` | string | Nao | ID da conta cloud registrada (apenas modo CLOUD) |
+| `aws` | object | Se provider=aws | Configuracao especifica AWS |
+| `azure` | object | Se provider=azure | Configuracao especifica Azure |
+| `vault` | object | Se provider=vault | Configuracao especifica Vault |
+
 **Formato do Secret:**
 
 O secret deve conter um objeto JSON com as chaves `username` e `password`:
@@ -434,9 +538,11 @@ O secret deve conter um objeto JSON com as chaves `username` e `password`:
 | AGENT | AWS | IAM Instance Role da EC2/ECS |
 | AGENT | Azure | Managed Identity |
 | AGENT | Vault | Token local ou AppRole |
-| CLOUD | AWS | STS AssumeRole (cross-account) |
-| CLOUD | Azure | Service Principal |
+| CLOUD | AWS | Credenciais da conta cloud registrada OU STS AssumeRole |
+| CLOUD | Azure | Credenciais da conta cloud registrada OU Service Principal |
 | CLOUD | Vault | Token Vault do backend |
+
+> **Nota:** No modo CLOUD, usar `cloudAccountId` para referenciar uma conta cloud registrada e recomendado pois usa as credenciais armazenadas de forma segura sem necessidade de configurar IAM roles adicionais.
 
 ### Atualizar Servidor
 

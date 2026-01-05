@@ -331,7 +331,41 @@ Content-Type: application/json
 
 #### Using AWS Secrets Manager (CLOUD Mode)
 
-When using CLOUD mode, provide a Role ARN for cross-account access.
+When using CLOUD mode, you have two options:
+
+**Option 1: Using a Registered Cloud Account (Recommended)**
+
+If you have already registered AWS accounts in the Cloud Database section (`/cloud-database`), you can reference them by `cloudAccountId`. The system will use the stored credentials to access Secrets Manager.
+
+```http
+POST /api/servers
+X-API-Key: runyx_ak_...
+X-API-Secret: runyx_sk_...
+Content-Type: application/json
+
+{
+  "name": "Production PostgreSQL",
+  "host": "db.example.com",
+  "port": 5432,
+  "type": "postgres",
+  "database": "myapp",
+  "environment": "PRODUCTION",
+  "managementMode": "CLOUD",
+  "credentialSource": "secrets_manager",
+  "secretsConfig": {
+    "provider": "aws",
+    "secretName": "prod/database/postgres-credentials",
+    "cloudAccountId": "aws-1731234567890",
+    "aws": {
+      "region": "us-east-1"
+    }
+  }
+}
+```
+
+**Option 2: Using Role ARN (Cross-Account Access)**
+
+If you don't have a registered cloud account, provide a Role ARN for cross-account access.
 
 ```http
 POST /api/servers
@@ -359,7 +393,7 @@ Content-Type: application/json
 }
 ```
 
-#### Using Azure Key Vault
+#### Using Azure Key Vault (AGENT Mode)
 
 ```http
 POST /api/servers
@@ -382,6 +416,64 @@ Content-Type: application/json
     "secretName": "postgres-credentials",
     "azure": {
       "vaultUrl": "https://myvault.vault.azure.net"
+    }
+  }
+}
+```
+
+#### Using Azure Key Vault (CLOUD Mode)
+
+**Option 1: Using a Registered Cloud Account (Recommended)**
+
+```http
+POST /api/servers
+X-API-Key: runyx_ak_...
+X-API-Secret: runyx_sk_...
+Content-Type: application/json
+
+{
+  "name": "Production PostgreSQL",
+  "host": "db.example.com",
+  "port": 5432,
+  "type": "postgres",
+  "database": "myapp",
+  "environment": "PRODUCTION",
+  "managementMode": "CLOUD",
+  "credentialSource": "secrets_manager",
+  "secretsConfig": {
+    "provider": "azure",
+    "secretName": "postgres-credentials",
+    "cloudAccountId": "azure-1731234567890",
+    "azure": {
+      "vaultUrl": "https://myvault.vault.azure.net"
+    }
+  }
+}
+```
+
+**Option 2: Using Tenant ID (Service Principal)**
+
+```http
+POST /api/servers
+X-API-Key: runyx_ak_...
+X-API-Secret: runyx_sk_...
+Content-Type: application/json
+
+{
+  "name": "Production PostgreSQL",
+  "host": "db.example.com",
+  "port": 5432,
+  "type": "postgres",
+  "database": "myapp",
+  "environment": "PRODUCTION",
+  "managementMode": "CLOUD",
+  "credentialSource": "secrets_manager",
+  "secretsConfig": {
+    "provider": "azure",
+    "secretName": "postgres-credentials",
+    "azure": {
+      "vaultUrl": "https://myvault.vault.azure.net",
+      "tenantId": "00000000-0000-0000-0000-000000000000"
     }
   }
 }
@@ -455,6 +547,17 @@ The secret must contain a JSON object with `username` and `password` keys:
 }
 ```
 
+**SecretsConfig Fields:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `provider` | string | Yes | Secrets provider: `aws`, `azure`, or `vault` |
+| `secretName` | string | Yes | Name of the secret to fetch |
+| `cloudAccountId` | string | No | ID of registered cloud account (CLOUD mode only) |
+| `aws` | object | If provider=aws | AWS-specific configuration |
+| `azure` | object | If provider=azure | Azure-specific configuration |
+| `vault` | object | If provider=vault | Vault-specific configuration |
+
 **Authentication by Mode:**
 
 | Mode | Provider | Authentication Method |
@@ -462,9 +565,11 @@ The secret must contain a JSON object with `username` and `password` keys:
 | AGENT | AWS | EC2/ECS IAM Instance Role |
 | AGENT | Azure | Managed Identity |
 | AGENT | Vault | Local token or AppRole |
-| CLOUD | AWS | STS AssumeRole (cross-account) |
-| CLOUD | Azure | Service Principal |
+| CLOUD | AWS | Registered cloud account credentials OR STS AssumeRole |
+| CLOUD | Azure | Registered cloud account credentials OR Service Principal |
 | CLOUD | Vault | Backend Vault token |
+
+> **Note:** In CLOUD mode, using `cloudAccountId` to reference a registered cloud account is recommended as it uses the stored credentials securely without requiring additional IAM role setup.
 
 ### Update Server
 
