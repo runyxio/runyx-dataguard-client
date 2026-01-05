@@ -301,7 +301,11 @@ Instead of storing credentials directly, you can configure the server to fetch c
 
 #### Using AWS Secrets Manager (AGENT Mode)
 
-When using AGENT mode, the agent uses the IAM role attached to the EC2/ECS instance to access Secrets Manager - no Role ARN needed.
+When using AGENT mode, you have two options:
+
+**Option 1: Using EC2/ECS IAM Instance Role (Default)**
+
+The agent uses the IAM role attached to the EC2/ECS instance to access Secrets Manager.
 
 ```http
 POST /api/servers
@@ -322,6 +326,37 @@ Content-Type: application/json
   "secretsConfig": {
     "provider": "aws",
     "secretName": "prod/database/postgres-credentials",
+    "aws": {
+      "region": "us-east-1"
+    }
+  }
+}
+```
+
+**Option 2: Using a Registered Cloud Account (Multi-Account)**
+
+For multi-account setups, use `cloudAccountId` to specify which AWS account to use. The backend sends the credentials to the agent.
+
+```http
+POST /api/servers
+X-API-Key: runyx_ak_...
+X-API-Secret: runyx_sk_...
+Content-Type: application/json
+
+{
+  "name": "Production PostgreSQL",
+  "host": "192.168.1.100",
+  "port": 5432,
+  "type": "postgres",
+  "database": "myapp",
+  "environment": "PRODUCTION",
+  "managementMode": "AGENT",
+  "assignedAgentId": "agent-uuid",
+  "credentialSource": "secrets_manager",
+  "secretsConfig": {
+    "provider": "aws",
+    "secretName": "prod/database/postgres-credentials",
+    "cloudAccountId": "aws-prod-account",
     "aws": {
       "region": "us-east-1"
     }
@@ -553,23 +588,27 @@ The secret must contain a JSON object with `username` and `password` keys:
 |-------|------|----------|-------------|
 | `provider` | string | Yes | Secrets provider: `aws`, `azure`, or `vault` |
 | `secretName` | string | Yes | Name of the secret to fetch |
-| `cloudAccountId` | string | No | ID of registered cloud account (CLOUD mode only) |
+| `cloudAccountId` | string | No | ID of registered cloud account (works with both CLOUD and AGENT modes) |
 | `aws` | object | If provider=aws | AWS-specific configuration |
 | `azure` | object | If provider=azure | Azure-specific configuration |
 | `vault` | object | If provider=vault | Vault-specific configuration |
 
 **Authentication by Mode:**
 
-| Mode | Provider | Authentication Method |
-|------|----------|----------------------|
-| AGENT | AWS | EC2/ECS IAM Instance Role |
-| AGENT | Azure | Managed Identity |
-| AGENT | Vault | Local token or AppRole |
-| CLOUD | AWS | Registered cloud account credentials OR STS AssumeRole |
-| CLOUD | Azure | Registered cloud account credentials OR Service Principal |
-| CLOUD | Vault | Backend Vault token |
+| Mode | Provider | cloudAccountId | Authentication Method |
+|------|----------|----------------|----------------------|
+| AGENT | AWS | Not set | EC2/ECS IAM Instance Role |
+| AGENT | AWS | Set | Registered cloud account credentials (sent to agent) |
+| AGENT | Azure | Not set | Managed Identity |
+| AGENT | Azure | Set | Registered cloud account credentials (sent to agent) |
+| AGENT | Vault | - | Local token or AppRole |
+| CLOUD | AWS | Not set | STS AssumeRole (requires roleArn) |
+| CLOUD | AWS | Set | Registered cloud account credentials |
+| CLOUD | Azure | Not set | Service Principal (requires tenantId) |
+| CLOUD | Azure | Set | Registered cloud account credentials |
+| CLOUD | Vault | - | Backend Vault token |
 
-> **Note:** In CLOUD mode, using `cloudAccountId` to reference a registered cloud account is recommended as it uses the stored credentials securely without requiring additional IAM role setup.
+> **Note:** Using `cloudAccountId` is recommended for multi-account setups. In AGENT mode, the backend sends the cloud account credentials to the agent, allowing it to access secrets from any registered AWS/Azure account without needing cross-account IAM roles.
 
 ### Update Server
 

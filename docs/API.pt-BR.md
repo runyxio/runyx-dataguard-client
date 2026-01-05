@@ -299,7 +299,11 @@ Em vez de armazenar credenciais diretamente, voce pode configurar o servidor par
 
 #### Usando AWS Secrets Manager (Modo AGENT)
 
-Quando usando modo AGENT, o agente usa o IAM role anexado a instancia EC2/ECS para acessar o Secrets Manager - nao e necessario Role ARN.
+Quando usando modo AGENT, voce tem duas opcoes:
+
+**Opcao 1: Usando IAM Instance Role da EC2/ECS (Padrao)**
+
+O agente usa o IAM role anexado a instancia EC2/ECS para acessar o Secrets Manager.
 
 ```http
 POST /api/servers
@@ -320,6 +324,37 @@ Content-Type: application/json
   "secretsConfig": {
     "provider": "aws",
     "secretName": "prod/database/postgres-credentials",
+    "aws": {
+      "region": "us-east-1"
+    }
+  }
+}
+```
+
+**Opcao 2: Usando uma Conta Cloud Registrada (Multi-Conta)**
+
+Para ambientes multi-conta, use `cloudAccountId` para especificar qual conta AWS usar. O backend envia as credenciais para o agente.
+
+```http
+POST /api/servers
+X-API-Key: runyx_ak_...
+X-API-Secret: runyx_sk_...
+Content-Type: application/json
+
+{
+  "name": "PostgreSQL Producao",
+  "host": "192.168.1.100",
+  "port": 5432,
+  "type": "postgres",
+  "database": "meuapp",
+  "environment": "PRODUCTION",
+  "managementMode": "AGENT",
+  "assignedAgentId": "agent-uuid",
+  "credentialSource": "secrets_manager",
+  "secretsConfig": {
+    "provider": "aws",
+    "secretName": "prod/database/postgres-credentials",
+    "cloudAccountId": "aws-prod-account",
     "aws": {
       "region": "us-east-1"
     }
@@ -515,7 +550,7 @@ Content-Type: application/json
 |-------|------|-------------|-----------|
 | `provider` | string | Sim | Provedor de secrets: `aws`, `azure` ou `vault` |
 | `secretName` | string | Sim | Nome do secret a ser buscado |
-| `cloudAccountId` | string | Nao | ID da conta cloud registrada (apenas modo CLOUD) |
+| `cloudAccountId` | string | Nao | ID da conta cloud registrada (funciona com modos CLOUD e AGENT) |
 | `aws` | object | Se provider=aws | Configuracao especifica AWS |
 | `azure` | object | Se provider=azure | Configuracao especifica Azure |
 | `vault` | object | Se provider=vault | Configuracao especifica Vault |
@@ -533,16 +568,20 @@ O secret deve conter um objeto JSON com as chaves `username` e `password`:
 
 **Autenticacao por Modo:**
 
-| Modo | Provedor | Metodo de Autenticacao |
-|------|----------|------------------------|
-| AGENT | AWS | IAM Instance Role da EC2/ECS |
-| AGENT | Azure | Managed Identity |
-| AGENT | Vault | Token local ou AppRole |
-| CLOUD | AWS | Credenciais da conta cloud registrada OU STS AssumeRole |
-| CLOUD | Azure | Credenciais da conta cloud registrada OU Service Principal |
-| CLOUD | Vault | Token Vault do backend |
+| Modo | Provedor | cloudAccountId | Metodo de Autenticacao |
+|------|----------|----------------|------------------------|
+| AGENT | AWS | Nao definido | IAM Instance Role da EC2/ECS |
+| AGENT | AWS | Definido | Credenciais da conta cloud registrada (enviadas ao agente) |
+| AGENT | Azure | Nao definido | Managed Identity |
+| AGENT | Azure | Definido | Credenciais da conta cloud registrada (enviadas ao agente) |
+| AGENT | Vault | - | Token local ou AppRole |
+| CLOUD | AWS | Nao definido | STS AssumeRole (requer roleArn) |
+| CLOUD | AWS | Definido | Credenciais da conta cloud registrada |
+| CLOUD | Azure | Nao definido | Service Principal (requer tenantId) |
+| CLOUD | Azure | Definido | Credenciais da conta cloud registrada |
+| CLOUD | Vault | - | Token Vault do backend |
 
-> **Nota:** No modo CLOUD, usar `cloudAccountId` para referenciar uma conta cloud registrada e recomendado pois usa as credenciais armazenadas de forma segura sem necessidade de configurar IAM roles adicionais.
+> **Nota:** Usar `cloudAccountId` e recomendado para ambientes multi-conta. No modo AGENT, o backend envia as credenciais da conta cloud para o agente, permitindo que ele acesse secrets de qualquer conta AWS/Azure registrada sem precisar configurar IAM roles cross-account.
 
 ### Atualizar Servidor
 
